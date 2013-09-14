@@ -10,7 +10,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
 
 add_definitions(-DDEBUG)
-set(CMAKE_CXX_FLAGS "-g -O0 -Wall -std=c++11 ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "-g -O0 -Wall -Werror -std=c++11 ${CMAKE_CXX_FLAGS}")
 
 set(SRC_LIST
 main.cpp

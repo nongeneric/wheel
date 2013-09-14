@@ -3,6 +3,8 @@
 #include <boost/log/trivial.hpp>
 #define GLM_FORCE_CXX11
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <functional>
 #include <stdexcept>
@@ -20,7 +22,8 @@ public:
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-        _window = glfwCreateWindow(640, 480, title.c_str(), NULL, NULL);
+        _window = glfwCreateWindow(600, 600, title.c_str(), NULL, NULL);
+        //_window = glfwCreateWindow(1920, 1200, title.c_str(), glfwGetPrimaryMonitor(), NULL);
         if (_window == nullptr)
             throw std::runtime_error("window init failure");
         glfwMakeContextCurrent(_window);
@@ -36,15 +39,19 @@ public:
     bool shouldClose() {
         return glfwWindowShouldClose(_window);
     }
-    // uses the right program for each mesh/primitive
-    // void draw(many meshes)
-    //   group by program
-    //   for each program
-    //     BindLock pl(program)
-    //     ... set uniforms, how? (mesh or program or..)
-    //     for each mesh
-    //       mesh.draw();
-    void setCamera(int matrix);
+    int getKey(int key) {
+        return glfwGetKey(_window, key);
+    }
+    glm::vec2 getCursorPos() {
+        double x, y;
+        glfwGetCursorPos(_window, &x, &y);
+        return glm::vec2(x, y);
+    }
+    glm::vec2 getFramebufferSize() {
+        int width, height;
+        glfwGetFramebufferSize(_window, &width, &height);
+        return glm::vec2(width, height);
+    }
 };
 
 template<typename Bindable>
@@ -99,6 +106,7 @@ std::string getGlInfoLog(
 class Program {
     std::vector<GLuint> _shaders;
     GLuint _program;
+
     GLuint createShader(const std::string& text, GLenum shaderType) {
         GLuint shader = glCreateShader(shaderType);
         const char* ptr = text.c_str();
@@ -114,7 +122,6 @@ class Program {
         }
         return shader;
     }
-
 public:
     void addVertexShader(const std::string& text) {
         _shaders.push_back(createShader(text, GL_VERTEX_SHADER));
@@ -122,7 +129,7 @@ public:
     void addFragmentShader(const std::string& text) {
         _shaders.push_back(createShader(text, GL_FRAGMENT_SHADER));
     }
-    void compile() {
+    void link() {
         _program = glCreateProgram();
         for (GLuint shader : _shaders) {
             glAttachShader(_program, shader);
@@ -139,7 +146,20 @@ public:
             glDeleteShader(shader);
         }
     }
-    void setUniform(int name, int value) { }
+    GLuint getUniformLocation(std::string const& name) {
+        GLuint loc = glGetUniformLocation(_program, name.c_str());
+        if (loc == (GLuint)-1) {
+            throw std::runtime_error("uniform get location error");
+        }
+        return loc;
+    }
+    void setUniform(GLuint location, glm::mat4 const& matrix) {
+        glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
+        GLenum error = glGetError();
+        if (error != GL_NO_ERROR && error != GL_INVALID_ENUM ) {
+            throw std::runtime_error("uniform set error");
+        }
+    }
     void bind() {
         glUseProgram(_program);
     }
@@ -178,6 +198,7 @@ void init_vao(VertexBuffer buffer) {
 class Mesh {
     VAO _vao;
     unsigned _indicesCount;
+    glm::mat4 _pos;
 public:
     Mesh(VertexBuffer vertices, IndexBuffer indices) {
         _indicesCount = indices.size();
@@ -185,41 +206,94 @@ public:
         init_vao(vertices);
         indices.bind();
     }
-    // extract from here, bind a single program once,
-    // draw everything with it, move to another program etc.
-    void draw(Program program, int cameraProjMatrix = 0) {
-        BindLock<Program> programLock(program);
-        // set pipelineMatrix uniform = cameraProjMatrix * meshPos
+    // assumes a program is bound, doesn't manage its position
+    void draw() {
         BindLock<VAO> vaoLock(_vao);
         glDrawElements(GL_TRIANGLES, _indicesCount, GL_UNSIGNED_SHORT, 0);
     }
-};
-
-class View {
-public:
-    void setPosition(glm::vec4 cartesian);
-    void setOrientation(glm::vec2 sphericalTarget, float angle) {
-
+    void setPos(glm::mat4 pos) {
+        _pos = pos;
     }
-    glm::mat4 getMatrix();
+    glm::mat4 const& getPos() const {
+        return _pos;
+    }
 };
+
+glm::mat4 getViewMatrix(glm::vec3 const& angles, glm::vec3 const& pos) {
+    glm::mat4 rotation = glm::rotate( glm::mat4(), -angles.x, glm::vec3 { 1, 0, 0 } ) *
+                         glm::rotate( glm::mat4(), -angles.y, glm::vec3 { 0, 1, 0 } ) *
+                         glm::rotate( glm::mat4(), -angles.z, glm::vec3 { 0, 0, 1 } );
+    glm::mat4 translation = glm::translate( {}, -pos );
+    return translation * rotation;
+}
+
+Mesh genCube() {
+    VertexBuffer vertices{{
+        glm::vec4 { 0.5f, 0.5f, 0.0f, 1.0f },
+        glm::vec4 { 0.5f, -0.5f, 0.0f, 1.0f },
+        glm::vec4 { -0.5f, -0.5f, 0.0f, 1.0f },
+        glm::vec4 { -0.5f, 0.5f, 0.0f, 1.0f },
+        glm::vec4 { 0.5f, 0.5f, 1.0f, 1.0f },
+        glm::vec4 { 0.5f, -0.5f, 1.0f, 1.0f },
+        glm::vec4 { -0.5f, -0.5f, 1.0f, 1.0f },
+        glm::vec4 { -0.5f, 0.5f, 1.0f, 1.0f },
+        // colors
+        glm::vec4 { 1.0f, 0.0f, 0.0f, 1.0f },
+        glm::vec4 { 0.0f, 1.0f, 0.0f, 1.0f },
+        glm::vec4 { 0.0f, 0.0f, 1.0f, 1.0f },
+        glm::vec4 { 1.0f, 0.0f, 0.0f, 1.0f },
+        glm::vec4 { 0.0f, 1.0f, 0.0f, 1.0f },
+        glm::vec4 { 0.0f, 0.0f, 1.0f, 1.0f },
+        glm::vec4 { 1.0f, 0.0f, 0.0f, 1.0f },
+        glm::vec4 { 0.0f, 1.0f, 0.0f, 1.0f },
+    }};
+    enum { b1, b2, b3, b4, u1, u2, u3, u4 };
+    IndexBuffer indices{{
+        b1, u1, b2, b2, u2, u1,
+        b2, u2, b3, b3, u3, u2,
+        b3, u3, b4, b4, u4, u3,
+        b4, u4, b1, b1, u1, u4,
+        b1, b2, b4, b4, b3, b2,
+        u1, u2, u4, u4, u3, u2
+    }};
+    return Mesh(vertices, indices);
+}
+
+Mesh genZXPlato(glm::vec4 color, GLfloat size) {
+    VertexBuffer vertices{{
+        glm::vec4 { 0.0f, 0.0f, 0.0f, 1.0f },
+        glm::vec4 { size, 0.0f, 0.0f, 1.0f },
+        glm::vec4 { size, 0.0f, size, 1.0f },
+        glm::vec4 { 0.0f, 0.0f, size, 1.0f },
+        color, color, color, color
+    }};
+    enum { b1, b2, b3, b4 };
+    IndexBuffer indices{{
+        b1, b2, b3, b3, b1, b4
+    }};
+    return Mesh(vertices, indices);
+}
 
 std::string vertexShader =
         "#version 330\n"
 
+        "uniform mat4 mvp;\n"
         "layout(location = 0) in vec4 position;\n"
         "layout(location = 1) in vec4 color;\n"
+        "smooth out vec4 f_color;\n"
         "void main() {\n"
-        "    gl_Position = position;\n"
+        "    gl_Position = mvp * position;\n"
+        "    f_color = color;"
         "}\n"
         ;
 
 std::string fragmentShader =
         "#version 330\n"
 
+        "smooth in vec4 f_color;\n"
         "out vec4 outputColor;\n"
         "void main() {\n"
-        "   outputColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
+        "   outputColor = f_color;\n"
         "}"
         ;
 
@@ -228,31 +302,88 @@ int main() {
     Program program;
     program.addVertexShader(vertexShader);
     program.addFragmentShader(fragmentShader);
-    program.compile();
+    program.link();
+    const GLuint U_MVP = program.getUniformLocation("mvp");
 
-    VertexBuffer vertexBuffer(
-        { glm::vec4{0,0,-1.1,1}, glm::vec4{0.5,0.5,0,1}, glm::vec4{0.5,0,0,1}, glm::vec4{1.0f,1.0f,0,1.0f},
-          glm::vec4{1.0f,1.0f,1.0f,1.0f}, glm::vec4{1.0f,1.0f,1.0f,1.0f}, glm::vec4{1.0f,1.0f,1.0f,1.0f}, glm::vec4{1.0f,1.0f,1.0f,1.0f}});
-    IndexBuffer indexBuffer({0,1,2});
+    glm::vec4 red { 1, 0, 0, 1 };
+    glm::vec4 green { 0, 1, 0, 1 };
+    glm::vec4 blue { 0, 0, 1, 1 };
+    glm::vec4 gray { 0.5, 0.5, 0.5, 1 };
 
-    Mesh mesh(vertexBuffer, indexBuffer);
+    GLfloat plato_size = 20.0f;
+    std::vector<Mesh> meshes {
+        genCube(), genCube(), genCube(),
+        genZXPlato(red, plato_size),
+        genZXPlato(green, plato_size),
+        genZXPlato(blue, plato_size),
+        genZXPlato(gray, plato_size)
+    };
 
+    enum { cube1, cube2, cube3, red_plato, green_plato, blue_plato, gray_plato };
+
+    meshes[cube1].setPos(
+        glm::translate( glm::mat4(), glm::vec3 { 5, 0.5, 5 } ) *
+        glm::rotate( glm::mat4(), 40.0f, glm::vec3 {0.0f, 1.0f, 0.0f} )
+    );
+    meshes[cube2].setPos(
+        glm::translate( glm::mat4(), glm::vec3 { 0, 0.5, 5 } )
+    );
+    meshes[cube3].setPos(
+        glm::translate( glm::mat4(), glm::vec3 { 10, 0.5, 5 } )
+    );
+    meshes[red_plato].setPos(
+        glm::translate( glm::mat4(), glm::vec3 { 0, 0, 0 } )
+    );
+    meshes[green_plato].setPos(
+        glm::translate( glm::mat4(), glm::vec3 { 0, 0, -plato_size } )
+    );
+    meshes[blue_plato].setPos(
+        glm::translate( glm::mat4(), glm::vec3 { -plato_size, 0, 0 } )
+    );
+    meshes[gray_plato].setPos(
+        glm::translate( glm::mat4(), glm::vec3 { -plato_size, 0, -plato_size } )
+    );
+
+    glm::vec3 cameraAngles{-5, -45, 0};
+    glm::vec3 cameraPos{0, 5, 25};
+
+    glEnable(GL_DEPTH_TEST);
+    glClearColor(0,0,0,1);
+    glm::vec2 cursor{ 300, 300 };
     while (!window.shouldClose()) {
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-////        program.bind();
-////        vertexBuffer.bind();
-////        glEnableVertexAttribArray(0);
-////        glEnableVertexAttribArray(1);
-////        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-////        auto colorsOffset = reinterpret_cast<void*>(vertexBuffer.size() * sizeof(vec4) / 2);
-////        glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, colorsOffset);
-////        indexBuffer.bind();
-////        glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, 0);
+        glm::vec2 size = window.getFramebufferSize();
+        glViewport(0, 0, size.x, size.y);
+        auto proj = glm::perspective(30.0f, size.x / size.y, 1.0f, 1000.0f);
+        glm::mat4 vpMatrix = proj * getViewMatrix(
+            cameraAngles,
+            cameraPos
+        );
 
-        mesh.draw(program);
+        BindLock<Program> programLock(program);
+        for (Mesh& mesh : meshes) {
+            glm::mat4 mvpMatrix = vpMatrix * mesh.getPos();
+            program.setUniform(U_MVP, mvpMatrix);
+            mesh.draw();
+        }
+
         window.swap();
+        bool leftPressed = window.getKey(GLFW_KEY_LEFT) == GLFW_PRESS;
+        bool rightPressed = window.getKey(GLFW_KEY_RIGHT) == GLFW_PRESS;
+        bool upPressed = window.getKey(GLFW_KEY_UP) == GLFW_PRESS;
+        bool downPressed = window.getKey(GLFW_KEY_DOWN) == GLFW_PRESS;
+        cameraPos += glm::vec3 {
+            -0.5 * leftPressed + 0.5 * rightPressed,
+            0,
+            -0.5 * upPressed + 0.5 * downPressed
+        };
+
+        glm::vec2 delta = window.getCursorPos() - cursor;
+        cursor = window.getCursorPos();
+        if (delta.x > 20 || delta.y > 20)
+            continue;
+        cameraAngles += glm::vec3 { 0.5 * delta.y, -0.5 * delta.x, 0 };
     }
     return 0;
 }
