@@ -1,0 +1,39 @@
+project(wheel)
+cmake_minimum_required(VERSION 2.8)
+
+set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "C:/mingw32/include/boost-1_54")
+set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "C:/mingw32/lib")
+set(Boost_USE_MULTITHREADED      ON)
+set(Boost_USE_STATIC_RUNTIME    OFF)
+find_package(Boost COMPONENTS log system filesystem thread chrono REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
+link_directories(${Boost_LIBRARY_DIRS})
+
+add_definitions(-DDEBUG)
+set(CMAKE_CXX_FLAGS "-g -O0 -Wall -std=c++11 ${CMAKE_CXX_FLAGS}")
+
+set(SRC_LIST
+main.cpp
+)
+
+set(WIN_LIB_DEPS
+    glew32
+    opengl32
+)
+
+set(LINUX_LIB_DEPS
+    GLEW
+    GL
+    X11
+    Xxf86vm
+    Xrandr
+    Xi
+)
+
+add_executable(${PROJECT_NAME} ${SRC_LIST})
+target_link_libraries(${PROJECT_NAME}
+    glfw3
+
+    ${WIN_LIB_DEPS}
+    ${Boost_LIBRARIES}
+)
