@@ -6,6 +6,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <boost/any.hpp>
+#include <boost/chrono.hpp>
 
 #include <functional>
 #include <stdexcept>
@@ -13,6 +14,44 @@
 #include <vector>
 #include <memory>
 #include <assert.h>
+#include <algorithm>
+
+namespace chrono = boost::chrono;
+using fseconds = chrono::duration<float>;
+const int g_TetrisHor = 10;
+const int g_TetrisVert = 20;
+
+class Mesh;
+void setScale(Mesh& mesh, glm::vec3 scale);
+
+class ScaleAnimation {
+    fseconds _elapsed;
+    fseconds _duration;
+    GLfloat _from, _to;
+    bool _isCompleted = true;
+public:
+    ScaleAnimation() = default;
+    ScaleAnimation(fseconds duration, GLfloat from, GLfloat to)
+        : _duration(duration), _from(from), _to(to), _isCompleted(false) { }
+    void animate(fseconds dt, std::function<Mesh&()> mesh) {
+        if (_isCompleted)
+            return;
+        _elapsed += dt;
+        GLfloat factor;
+        if (_elapsed > _duration) {
+            _isCompleted = true;
+            factor = _to;
+        } else {
+            factor = _from + (_to - _from) * (_elapsed / _duration);
+        }
+        setScale(mesh(), glm::vec3 { factor, factor, factor });
+    }
+    friend bool isCompleted(ScaleAnimation& a);
+};
+
+bool isCompleted(ScaleAnimation& a) {
+    return a._isCompleted;
+}
 
 class Window {
     GLFWwindow* _window;
@@ -203,6 +242,8 @@ class Mesh {
     VAO _vao;
     unsigned _indicesCount;
     glm::mat4 _pos;
+    glm::mat4 _scale;
+    ScaleAnimation _animation;
 public:
     Mesh(VertexBuffer vertices, IndexBuffer indices) {
         _indicesCount = indices.size();
@@ -212,19 +253,41 @@ public:
     }
     // assumes a program is bound, doesn't manage its position
     friend void draw(Mesh& mesh, int mvp_location, glm::mat4 vp, Program& program);
-    friend void setPos(Mesh& mesh, glm::mat4 pos);
-    friend glm::mat4 const& getPos(Mesh& mesh);
+    friend void setPos(Mesh& mesh, glm::vec3 pos);
+    friend void setScale(Mesh& mesh, glm::vec3 scale);
+    friend void setAnimation(Mesh& mesh, ScaleAnimation a);
+    friend void animate(Mesh& mesh, fseconds dt);
+    friend glm::mat4 getTransform(Mesh& mesh);
+    glm::mat4 const& getPos() const {
+        return _pos;
+    }
 };
+
+glm::mat4 getTransform(Mesh& mesh) {
+    return mesh._pos * mesh._scale;
+}
 
 void draw(Mesh& mesh, int mvp_location, glm::mat4 vp, Program& program) {
     BindLock<VAO> vaoLock(mesh._vao);
-    glm::mat4 mvp = vp * mesh._pos;
+    glm::mat4 mvp = vp * getTransform(mesh);
     program.setUniform(mvp_location, mvp);
     glDrawElements(GL_TRIANGLES, mesh._indicesCount, GL_UNSIGNED_SHORT, 0);
 }
 
-void setPos(Mesh& mesh, glm::mat4 pos) {
-    mesh._pos = pos;
+void setPos(Mesh& mesh, glm::vec3 pos) {
+    mesh._pos = glm::translate( {}, pos );
+}
+
+void setScale(Mesh& mesh, glm::vec3 scale) {
+    mesh._scale = glm::scale({}, scale);
+}
+
+void setAnimation(Mesh& mesh, ScaleAnimation a) {
+    mesh._animation = a;
+}
+
+void animate(Mesh& mesh, fseconds dt) {
+    mesh._animation.animate(dt, [&]() -> Mesh& { return mesh; });
 }
 
 glm::mat4 getViewMatrix(glm::vec3 const& angles, glm::vec3 const& pos) {
@@ -286,6 +349,9 @@ class Trunk {
     std::vector<Mesh> _cubes;
     glm::mat4 _pos;
     int _hor, _vert;
+    Mesh& at(int x, int y) {
+        return _cubes.at(_hor * y + x);
+    }
 public:
     Trunk(int hor, int vert)
         : _hor(hor), _vert(vert)
@@ -293,16 +359,23 @@ public:
         for (int y = 0; y < vert; ++y) {
             for (int x = 0; x < hor; ++x) {
                 Mesh cube = genCube();
-                setPos(cube, glm::translate({}, glm::vec3 {x * 1.3, y * 1.3, 0}));
+                setPos(cube, glm::vec3 {x * 1.3, y * 1.3, 0});
                 _cubes.push_back(cube);
             }
         }
     }
-    void setVisibility(int x, int y) {
-        setPos(_cubes.at(_hor * y + x), glm::translate_slow({}, glm::vec3 { 100,100,100 }));
+    void animateDestroy(int x, int y) {
+        setAnimation(at(x, y), ScaleAnimation(fseconds(3), 1, 0));
     }
+    void hide(int x, int y) {
+        setScale(at(x, y), glm::vec3 {0, 0, 0});
+    }
+    void show(int x, int y) {
+        setScale(at(x, y), glm::vec3 {1, 1, 1});
+    }
+    friend void animate(Trunk& trunk, fseconds dt);
     friend void draw(Trunk&, int, glm::mat4, Program&);
-    friend void setPos(Trunk&, glm::mat4);
+    friend void setPos(Trunk&, glm::vec3);
     friend glm::mat4 const& getPos(Trunk&);
 };
 
@@ -311,8 +384,13 @@ void draw(Trunk& t, int mvp_location, glm::mat4 vp, Program& program) {
         ::draw(m, mvp_location, vp * t._pos, program);
 }
 
-void setPos(Trunk& trunk, glm::mat4 pos) {
-    trunk._pos = pos;
+void setPos(Trunk& trunk, glm::vec3 pos) {
+    trunk._pos = glm::translate({}, pos);
+}
+
+void animate(Trunk& trunk, fseconds dt) {
+    for (Mesh& m : trunk._cubes)
+        animate(m, dt);
 }
 
 class MeshWrapper {
@@ -320,7 +398,8 @@ class MeshWrapper {
         virtual ~concept() = default;
         virtual concept* copy_() = 0;
         virtual void draw_(int mvp_location, glm::mat4 vp, Program& program) = 0;
-        virtual void setPos_(glm::mat4) = 0;
+        virtual void setPos_(glm::vec3) = 0;
+        virtual void animate_(fseconds dt) = 0;
     };
     template <typename T>
     struct model : concept {
@@ -331,8 +410,11 @@ class MeshWrapper {
         virtual void draw_(int mvp_location, glm::mat4 vp, Program& program) override {
             ::draw(data_, mvp_location, vp, program);
         }
-        virtual void setPos_(glm::mat4 pos) {
+        virtual void setPos_(glm::vec3 pos) {
             ::setPos(data_, pos);
+        }
+        virtual void animate_(fseconds dt) {
+            ::animate(data_, dt);
         }
         T data_;
     };
@@ -345,8 +427,11 @@ public:
     friend void draw(MeshWrapper& w, int mvp_location, glm::mat4 vp, Program& program) {
         w._ptr->draw_(mvp_location, vp, program);
     }
-    friend void setPos(MeshWrapper& w, glm::mat4 pos) {
+    friend void setPos(MeshWrapper& w, glm::vec3 pos) {
         w._ptr->setPos_(pos);
+    }
+    friend void animate(MeshWrapper& w, fseconds dt) {
+        w._ptr->animate_(dt);
     }
     template <typename T>
     T& obj() {
@@ -377,6 +462,7 @@ std::string fragmentShader =
         "}"
         ;
 
+enum { red_plato, green_plato, blue_plato, gray_plato, trunk };
 std::vector<MeshWrapper> genMeshes() {
     glm::vec4 red { 1, 0, 0, 1 };
     glm::vec4 green { 0, 1, 0, 1 };
@@ -384,47 +470,164 @@ std::vector<MeshWrapper> genMeshes() {
     glm::vec4 gray { 0.5, 0.5, 0.5, 1 };
     GLfloat plato_size = 20.0f;
     std::vector<MeshWrapper> meshes {
-        genCube(), genCube(), genCube(),
         genZXPlato(red, plato_size),
         genZXPlato(green, plato_size),
         genZXPlato(blue, plato_size),
         genZXPlato(gray, plato_size),
-        Trunk(10, 20)
+        Trunk(g_TetrisHor, g_TetrisVert)
     };
 
-    enum { cube1, cube2, cube3, red_plato, green_plato, blue_plato, gray_plato, trunk };
-
-    setPos(meshes[cube1],
-        glm::translate( glm::mat4(), glm::vec3 { 5, 0.5, 5 } ) *
-        glm::rotate( glm::mat4(), 40.0f, glm::vec3 {0.0f, 1.0f, 0.0f} )
-    );
-    setPos(meshes[cube2],
-        glm::translate( glm::mat4(), glm::vec3 { 0, 0.5, 5 } )
-    );
-    setPos(meshes[cube3],
-        glm::translate( glm::mat4(), glm::vec3 { 10, 0.5, 5 } )
-    );
-    setPos(meshes[red_plato],
-        glm::translate( glm::mat4(), glm::vec3 { 0, 0, 0 } )
-    );
-    setPos(meshes[green_plato],
-        glm::translate( glm::mat4(), glm::vec3 { 0, 0, -plato_size } )
-    );
-    setPos(meshes[blue_plato],
-        glm::translate( glm::mat4(), glm::vec3 { -plato_size, 0, 0 } )
-    );
-    setPos(meshes[gray_plato],
-        glm::translate( glm::mat4(), glm::vec3 { -plato_size, 0, -plato_size } )
-    );
+    setPos(meshes[red_plato], glm::vec3 { 0, 0, 0 } );
+    setPos(meshes[green_plato], glm::vec3 { 0, 0, -plato_size });
+    setPos(meshes[blue_plato], glm::vec3 { -plato_size, 0, 0 });
+    setPos(meshes[gray_plato], glm::vec3 { -plato_size, 0, -plato_size });
     Trunk& tr = meshes[trunk].obj<Trunk>();
-    setPos(tr,
-        glm::translate( glm::mat4(), glm::vec3 { -10, 0, 0 } )
-    );
-    tr.setVisibility(0, 0);
-    tr.setVisibility(3, 0);
-    tr.setVisibility(0, 4);
-    tr.setVisibility(1, 5);
+    setPos(tr, glm::vec3 { -10, 0, 0 } );
     return meshes;
+}
+
+namespace rstd {
+    template<typename T, typename Cont>
+    void fill(Cont& cont, T val) {
+        std::fill(std::begin(cont), std::end(cont), val);
+    }
+    template<typename Pred, typename Cont>
+    bool any_of(Cont& cont, Pred pred) {
+        return std::any_of(std::begin(cont), std::end(cont), pred);
+    }
+}
+
+enum class CellState {
+    Shown, Hidden, Dying
+};
+
+class Tetris {
+    using Line = std::vector<CellState>;
+    using State = std::vector<Line>;
+
+    int _hor, _vert;
+    bool _nothingFalling = true;
+    State _staticGrid;
+    State _dynamicGrid;
+    void drawPiece() {
+        _dynamicGrid.at(_vert - 1).at(3) = CellState::Shown;
+        _dynamicGrid.at(_vert - 1).at(4) = CellState::Shown;
+        _dynamicGrid.at(_vert - 1).at(5) = CellState::Shown;
+        _dynamicGrid.at(_vert - 1).at(6) = CellState::Shown;
+    }
+    void nextPiece() {
+        initState(_dynamicGrid);
+        drawPiece();
+        _nothingFalling = false;
+    }
+    bool collision(State& state) {
+        assert(_staticGrid.size() == state.size());
+        for (int x = 0; x < _hor; ++x) {
+            for (int y = 0; y < _vert; ++y) {
+                if (state.at(y).at(x) == CellState::Shown &&
+                    _staticGrid.at(y).at(x) == CellState::Shown)
+                    return true;
+            }
+        }
+        return false;
+    }
+    void stamp(State const& state) {
+        for (int x = 0; x < _hor; ++x) {
+            for (int y = 0; y < _vert; ++y) {
+                if (state.at(y).at(x) == CellState::Shown) {
+                    _staticGrid.at(y).at(x) = CellState::Shown;
+                }
+            }
+        }
+    }
+    bool hitButtom(State const& state) {
+        return rstd::any_of(state.at(0), [](CellState cell) {
+            return cell == CellState::Shown;
+        });
+    }
+    void drop() {
+        auto res = _dynamicGrid;
+        std::copy(begin(res) + 1, end(res), begin(res));
+        rstd::fill(res.at(_vert - 1), CellState::Hidden);
+
+        if (collision(res)) {
+            stamp(_dynamicGrid);
+            _nothingFalling = true;
+        } else if (hitButtom(res)) {
+            stamp(res);
+            _dynamicGrid = res;
+            _nothingFalling = true;
+        } else {
+            _dynamicGrid = res;
+        }
+    }
+    void initState(State& state) {
+        state.resize(_vert);
+        for (Line& line : state) {
+            line.resize(_hor);
+            rstd::fill(line, CellState::Hidden);
+        }
+    }
+    void moveHor(bool isRight) {
+        if (_nothingFalling)
+            return;
+        bool rightTouch = rstd::any_of(_dynamicGrid, [&](Line const& line) {
+            return line.at(isRight ? (_hor - 1) : 0) == CellState::Shown;
+        });
+        if (!rightTouch) {
+            for (Line& line : _dynamicGrid) {
+                if (isRight) {
+                    std::copy(begin(line), end(line) - 1, begin(line) + 1);
+                } else {
+                    std::copy(begin(line) + 1, end(line), begin(line));
+                }
+                line.at(isRight ? 0 : (_hor - 1)) = CellState::Hidden;
+            }
+        }
+    }
+public:
+    Tetris(int hor, int vert)
+        : _hor(hor),
+          _vert(vert)
+    {
+        initState(_staticGrid);
+        initState(_dynamicGrid);
+    }
+    CellState getState(int x, int y) {
+        if (_dynamicGrid.at(y).at(x) == CellState::Shown)
+            return CellState::Shown;
+        return _staticGrid.at(y).at(x);
+    }
+    void step() {
+        if (_nothingFalling)
+            nextPiece();
+        drop();
+    }
+    void moveRight() {
+        moveHor(true);
+    }
+    void moveLeft() {
+        moveHor(false);
+    }
+};
+
+void copyState(Tetris& tetris, Trunk& trunk) {
+    for (int x = 0; x < g_TetrisHor; ++x) {
+        for (int y = 0; y < g_TetrisVert; ++y) {
+            switch (tetris.getState(x, y)) {
+            case CellState::Shown:
+                trunk.show(x, y);
+                break;
+            case CellState::Hidden:
+                trunk.hide(x, y);
+                break;
+            case CellState::Dying:
+                trunk.animateDestroy(x, y);
+                break;
+            default: assert(false);
+            }
+        }
+    }
 }
 
 int main() {
@@ -437,12 +640,20 @@ int main() {
 
     auto meshes = genMeshes();
 
-    glm::vec3 cameraAngles{-5, -45, 0};
-    glm::vec3 cameraPos{0, 5, 25};
+    Tetris tetris(g_TetrisHor, g_TetrisVert);
+
+    glm::vec3 cameraAngles{-5, 0, 0};
+    glm::vec3 cameraPos{0, 2, 100};
 
     glEnable(GL_DEPTH_TEST);
     glClearColor(0,0,0,1);
     glm::vec2 cursor{ 300, 300 };
+    auto past = chrono::high_resolution_clock::now();
+    fseconds elapsed;
+
+    int prevKP3State = GLFW_RELEASE;
+    int prevKP1State = GLFW_RELEASE;
+
     while (!window.shouldClose()) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -454,12 +665,23 @@ int main() {
             cameraPos
         );
 
+        auto now = chrono::high_resolution_clock::now();
+        fseconds dt = chrono::duration_cast<fseconds>(now - past);
+        elapsed += dt;
+        if (elapsed > fseconds(0.5f)) {
+            tetris.step();
+            elapsed = fseconds();
+        }
+        past = now;
+
         BindLock<Program> programLock(program);
         for (MeshWrapper& mesh : meshes) {
+            animate(mesh, dt);
             draw(mesh, U_MVP, vpMatrix, program);
         }
 
         window.swap();
+
         bool leftPressed = window.getKey(GLFW_KEY_LEFT) == GLFW_PRESS;
         bool rightPressed = window.getKey(GLFW_KEY_RIGHT) == GLFW_PRESS;
         bool upPressed = window.getKey(GLFW_KEY_UP) == GLFW_PRESS;
@@ -474,7 +696,20 @@ int main() {
             glm::vec2 delta = window.getCursorPos() - cursor;
             cameraAngles += glm::vec3 { -0.5 * delta.y, -0.5 * delta.x, 0 };
         }
+        if (window.getKey(GLFW_KEY_KP_3) == GLFW_RELEASE && prevKP3State == GLFW_PRESS) {
+            tetris.moveRight();
+        }
+        if (window.getKey(GLFW_KEY_KP_1) == GLFW_RELEASE && prevKP1State == GLFW_PRESS) {
+            tetris.moveLeft();
+        }
+        if (window.getKey(GLFW_KEY_KP_2)) {
+            tetris.step();
+        }
+        prevKP3State = window.getKey(GLFW_KEY_KP_3);
+        prevKP1State = window.getKey(GLFW_KEY_KP_1);
         cursor = window.getCursorPos();
+
+        copyState(tetris, meshes[trunk].obj<Trunk>());
     }
     return 0;
 }
