@@ -5,11 +5,13 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <boost/any.hpp>
 
 #include <functional>
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <memory>
 #include <assert.h>
 
 class Window {
@@ -41,6 +43,9 @@ public:
     }
     int getKey(int key) {
         return glfwGetKey(_window, key);
+    }
+    int getMouseButton(int button) {
+        return glfwGetMouseButton(_window, button);
     }
     glm::vec2 getCursorPos() {
         double x, y;
@@ -194,7 +199,6 @@ void init_vao(VertexBuffer buffer) {
     glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, colorsOffset);
 }
 
-// contains one vao
 class Mesh {
     VAO _vao;
     unsigned _indicesCount;
@@ -207,17 +211,21 @@ public:
         indices.bind();
     }
     // assumes a program is bound, doesn't manage its position
-    void draw() {
-        BindLock<VAO> vaoLock(_vao);
-        glDrawElements(GL_TRIANGLES, _indicesCount, GL_UNSIGNED_SHORT, 0);
-    }
-    void setPos(glm::mat4 pos) {
-        _pos = pos;
-    }
-    glm::mat4 const& getPos() const {
-        return _pos;
-    }
+    friend void draw(Mesh& mesh, int mvp_location, glm::mat4 vp, Program& program);
+    friend void setPos(Mesh& mesh, glm::mat4 pos);
+    friend glm::mat4 const& getPos(Mesh& mesh);
 };
+
+void draw(Mesh& mesh, int mvp_location, glm::mat4 vp, Program& program) {
+    BindLock<VAO> vaoLock(mesh._vao);
+    glm::mat4 mvp = vp * mesh._pos;
+    program.setUniform(mvp_location, mvp);
+    glDrawElements(GL_TRIANGLES, mesh._indicesCount, GL_UNSIGNED_SHORT, 0);
+}
+
+void setPos(Mesh& mesh, glm::mat4 pos) {
+    mesh._pos = pos;
+}
 
 glm::mat4 getViewMatrix(glm::vec3 const& angles, glm::vec3 const& pos) {
     glm::mat4 rotation = glm::rotate( glm::mat4(), -angles.x, glm::vec3 { 1, 0, 0 } ) *
@@ -274,6 +282,78 @@ Mesh genZXPlato(glm::vec4 color, GLfloat size) {
     return Mesh(vertices, indices);
 }
 
+class Trunk {
+    std::vector<Mesh> _cubes;
+    glm::mat4 _pos;
+    int _hor, _vert;
+public:
+    Trunk(int hor, int vert)
+        : _hor(hor), _vert(vert)
+    {
+        for (int y = 0; y < vert; ++y) {
+            for (int x = 0; x < hor; ++x) {
+                Mesh cube = genCube();
+                setPos(cube, glm::translate({}, glm::vec3 {x * 1.3, y * 1.3, 0}));
+                _cubes.push_back(cube);
+            }
+        }
+    }
+    void setVisibility(int x, int y) {
+        setPos(_cubes.at(_hor * y + x), glm::translate_slow({}, glm::vec3 { 100,100,100 }));
+    }
+    friend void draw(Trunk&, int, glm::mat4, Program&);
+    friend void setPos(Trunk&, glm::mat4);
+    friend glm::mat4 const& getPos(Trunk&);
+};
+
+void draw(Trunk& t, int mvp_location, glm::mat4 vp, Program& program) {
+    for (Mesh& m : t._cubes)
+        ::draw(m, mvp_location, vp * t._pos, program);
+}
+
+void setPos(Trunk& trunk, glm::mat4 pos) {
+    trunk._pos = pos;
+}
+
+class MeshWrapper {
+    struct concept {
+        virtual ~concept() = default;
+        virtual concept* copy_() = 0;
+        virtual void draw_(int mvp_location, glm::mat4 vp, Program& program) = 0;
+        virtual void setPos_(glm::mat4) = 0;
+    };
+    template <typename T>
+    struct model : concept {
+        model(T m) : data_(std::move(m)) { }
+        virtual concept* copy_() override {
+            return new model(*this);
+        }
+        virtual void draw_(int mvp_location, glm::mat4 vp, Program& program) override {
+            ::draw(data_, mvp_location, vp, program);
+        }
+        virtual void setPos_(glm::mat4 pos) {
+            ::setPos(data_, pos);
+        }
+        T data_;
+    };
+    std::unique_ptr<concept> _ptr;
+public:
+    template <typename T>
+    MeshWrapper(T x) : _ptr(new model<T>(std::move(x))) { }
+    MeshWrapper(MeshWrapper const& w) : _ptr(w._ptr->copy_()) { }
+    MeshWrapper(MeshWrapper&& w) : _ptr(std::move(w._ptr)) { }
+    friend void draw(MeshWrapper& w, int mvp_location, glm::mat4 vp, Program& program) {
+        w._ptr->draw_(mvp_location, vp, program);
+    }
+    friend void setPos(MeshWrapper& w, glm::mat4 pos) {
+        w._ptr->setPos_(pos);
+    }
+    template <typename T>
+    T& obj() {
+        return dynamic_cast<model<T>*>(_ptr.get())->data_;
+    }
+};
+
 std::string vertexShader =
         "#version 330\n"
 
@@ -297,52 +377,65 @@ std::string fragmentShader =
         "}"
         ;
 
+std::vector<MeshWrapper> genMeshes() {
+    glm::vec4 red { 1, 0, 0, 1 };
+    glm::vec4 green { 0, 1, 0, 1 };
+    glm::vec4 blue { 0, 0, 1, 1 };
+    glm::vec4 gray { 0.5, 0.5, 0.5, 1 };
+    GLfloat plato_size = 20.0f;
+    std::vector<MeshWrapper> meshes {
+        genCube(), genCube(), genCube(),
+        genZXPlato(red, plato_size),
+        genZXPlato(green, plato_size),
+        genZXPlato(blue, plato_size),
+        genZXPlato(gray, plato_size),
+        Trunk(10, 20)
+    };
+
+    enum { cube1, cube2, cube3, red_plato, green_plato, blue_plato, gray_plato, trunk };
+
+    setPos(meshes[cube1],
+        glm::translate( glm::mat4(), glm::vec3 { 5, 0.5, 5 } ) *
+        glm::rotate( glm::mat4(), 40.0f, glm::vec3 {0.0f, 1.0f, 0.0f} )
+    );
+    setPos(meshes[cube2],
+        glm::translate( glm::mat4(), glm::vec3 { 0, 0.5, 5 } )
+    );
+    setPos(meshes[cube3],
+        glm::translate( glm::mat4(), glm::vec3 { 10, 0.5, 5 } )
+    );
+    setPos(meshes[red_plato],
+        glm::translate( glm::mat4(), glm::vec3 { 0, 0, 0 } )
+    );
+    setPos(meshes[green_plato],
+        glm::translate( glm::mat4(), glm::vec3 { 0, 0, -plato_size } )
+    );
+    setPos(meshes[blue_plato],
+        glm::translate( glm::mat4(), glm::vec3 { -plato_size, 0, 0 } )
+    );
+    setPos(meshes[gray_plato],
+        glm::translate( glm::mat4(), glm::vec3 { -plato_size, 0, -plato_size } )
+    );
+    Trunk& tr = meshes[trunk].obj<Trunk>();
+    setPos(tr,
+        glm::translate( glm::mat4(), glm::vec3 { -10, 0, 0 } )
+    );
+    tr.setVisibility(0, 0);
+    tr.setVisibility(3, 0);
+    tr.setVisibility(0, 4);
+    tr.setVisibility(1, 5);
+    return meshes;
+}
+
 int main() {
-    Window window("hi there");
+    Window window("wheel");
     Program program;
     program.addVertexShader(vertexShader);
     program.addFragmentShader(fragmentShader);
     program.link();
     const GLuint U_MVP = program.getUniformLocation("mvp");
 
-    glm::vec4 red { 1, 0, 0, 1 };
-    glm::vec4 green { 0, 1, 0, 1 };
-    glm::vec4 blue { 0, 0, 1, 1 };
-    glm::vec4 gray { 0.5, 0.5, 0.5, 1 };
-
-    GLfloat plato_size = 20.0f;
-    std::vector<Mesh> meshes {
-        genCube(), genCube(), genCube(),
-        genZXPlato(red, plato_size),
-        genZXPlato(green, plato_size),
-        genZXPlato(blue, plato_size),
-        genZXPlato(gray, plato_size)
-    };
-
-    enum { cube1, cube2, cube3, red_plato, green_plato, blue_plato, gray_plato };
-
-    meshes[cube1].setPos(
-        glm::translate( glm::mat4(), glm::vec3 { 5, 0.5, 5 } ) *
-        glm::rotate( glm::mat4(), 40.0f, glm::vec3 {0.0f, 1.0f, 0.0f} )
-    );
-    meshes[cube2].setPos(
-        glm::translate( glm::mat4(), glm::vec3 { 0, 0.5, 5 } )
-    );
-    meshes[cube3].setPos(
-        glm::translate( glm::mat4(), glm::vec3 { 10, 0.5, 5 } )
-    );
-    meshes[red_plato].setPos(
-        glm::translate( glm::mat4(), glm::vec3 { 0, 0, 0 } )
-    );
-    meshes[green_plato].setPos(
-        glm::translate( glm::mat4(), glm::vec3 { 0, 0, -plato_size } )
-    );
-    meshes[blue_plato].setPos(
-        glm::translate( glm::mat4(), glm::vec3 { -plato_size, 0, 0 } )
-    );
-    meshes[gray_plato].setPos(
-        glm::translate( glm::mat4(), glm::vec3 { -plato_size, 0, -plato_size } )
-    );
+    auto meshes = genMeshes();
 
     glm::vec3 cameraAngles{-5, -45, 0};
     glm::vec3 cameraPos{0, 5, 25};
@@ -362,10 +455,8 @@ int main() {
         );
 
         BindLock<Program> programLock(program);
-        for (Mesh& mesh : meshes) {
-            glm::mat4 mvpMatrix = vpMatrix * mesh.getPos();
-            program.setUniform(U_MVP, mvpMatrix);
-            mesh.draw();
+        for (MeshWrapper& mesh : meshes) {
+            draw(mesh, U_MVP, vpMatrix, program);
         }
 
         window.swap();
@@ -378,12 +469,12 @@ int main() {
             0,
             -0.5 * upPressed + 0.5 * downPressed
         };
-
-        glm::vec2 delta = window.getCursorPos() - cursor;
+        bool mouseLeftPressed = window.getMouseButton(GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+        if (mouseLeftPressed) {
+            glm::vec2 delta = window.getCursorPos() - cursor;
+            cameraAngles += glm::vec3 { -0.5 * delta.y, -0.5 * delta.x, 0 };
+        }
         cursor = window.getCursorPos();
-        if (delta.x > 20 || delta.y > 20)
-            continue;
-        cameraAngles += glm::vec3 { 0.5 * delta.y, -0.5 * delta.x, 0 };
     }
     return 0;
 }
