@@ -364,8 +364,8 @@ public:
             }
         }
     }
-    void animateDestroy(int x, int y) {
-        setAnimation(at(x, y), ScaleAnimation(fseconds(3), 1, 0));
+    void animateDestroy(int x, int y, fseconds duration) {
+        setAnimation(at(x, y), ScaleAnimation(duration, 1, 0));
     }
     void hide(int x, int y) {
         setScale(at(x, y), glm::vec3 {0, 0, 0});
@@ -495,28 +495,107 @@ namespace rstd {
     bool any_of(Cont& cont, Pred pred) {
         return std::any_of(std::begin(cont), std::end(cont), pred);
     }
+    template<typename Pred, typename Cont>
+    bool all_of(Cont& cont, Pred pred) {
+        return std::all_of(std::begin(cont), std::end(cont), pred);
+    }
+    template<typename Pred, typename Cont>
+    typename Cont::iterator stable_partition(Cont& cont, Pred pred) {
+        return std::stable_partition(std::begin(cont), std::end(cont), pred);
+    }
+    template<typename Cont, typename Iter>
+    void copy(Cont& cont, Iter out) {
+        std::copy(std::begin(cont), std::end(cont), out);
+    }
 }
 
 enum class CellState {
     Shown, Hidden, Dying
 };
 
-class Tetris {
-    using Line = std::vector<CellState>;
-    using State = std::vector<Line>;
+struct BBox {
+    int x, y, size;
+};
 
+enum class PieceType {
+    Bar
+};
+
+namespace PieceOrientation {
+    enum t {
+        Up, Right, Down, Left
+    };
+}
+
+std::vector<PieceOrientation::t> OrientationCircle {
+    PieceOrientation::Up,
+    PieceOrientation::Right,
+    PieceOrientation::Down,
+    PieceOrientation::Left
+};
+
+using Line = std::vector<CellState>;
+using State = std::vector<Line>;
+
+auto _1 = CellState::Shown;
+auto _0 = CellState::Hidden;
+
+auto barUp = State {
+    Line { _1, _1, _1, _1 },
+    Line { _0, _0, _0, _0 },
+    Line { _0, _0, _0, _0 },
+    Line { _0, _0, _0, _0 },
+};
+
+auto barRight = State {
+    Line { _0, _1, _0, _0 },
+    Line { _0, _1, _0, _0 },
+    Line { _0, _1, _0, _0 },
+    Line { _0, _1, _0, _0 },
+};
+
+auto barLeft = barRight;
+auto barDown = barUp;
+
+State orientations[4] = {
+    barUp, barRight, barDown, barLeft
+};
+
+class Tetris {
     int _hor, _vert;
     bool _nothingFalling = true;
     State _staticGrid;
     State _dynamicGrid;
+    BBox _bbPiece;
+    PieceType _piece;
+    PieceOrientation::t _pieceOrientation;
+    State cut(State& source, unsigned posX, unsigned posY, unsigned size) {
+        State res(size);
+        for (size_t y = 0; y < size; ++y) {
+            Line& sourceLine = source.at(y + posY);
+            auto sourceLineBegin = begin(sourceLine) + posX;
+            auto sourceLineEnd = begin(sourceLine) + posX + size;
+            std::copy(sourceLineBegin,
+                      sourceLineEnd,
+                      std::back_inserter(res.at(y)));
+            std::fill(sourceLineBegin,
+                      sourceLineEnd,
+                      CellState::Hidden);
+        }
+        return res;
+    }
+    void paste(State const& piece, State& state, unsigned posX, unsigned posY) {
+        for (size_t y = 0; y < piece.size(); ++y) {
+            rstd::copy(piece.at(y), begin(state.at(posY + y)) + posX);
+        }
+    }
     void drawPiece() {
-        _dynamicGrid.at(_vert - 1).at(3) = CellState::Shown;
-        _dynamicGrid.at(_vert - 1).at(4) = CellState::Shown;
-        _dynamicGrid.at(_vert - 1).at(5) = CellState::Shown;
-        _dynamicGrid.at(_vert - 1).at(6) = CellState::Shown;
+        _bbPiece = { 7, _vert - 9, 4 };
+        paste(barUp, _dynamicGrid, _bbPiece.x, _bbPiece.y);
+        _piece = PieceType::Bar;
     }
     void nextPiece() {
-        initState(_dynamicGrid);
+        _dynamicGrid = createState(_hor, _vert, CellState::Hidden);
         drawPiece();
         _nothingFalling = false;
     }
@@ -540,63 +619,80 @@ class Tetris {
             }
         }
     }
-    bool hitButtom(State const& state) {
-        return rstd::any_of(state.at(0), [](CellState cell) {
-            return cell == CellState::Shown;
+    void kill() {
+        std::for_each(begin(_staticGrid) + 4, end(_staticGrid), [](Line& line) {
+            bool hit = rstd::all_of(line, [](CellState cell) {
+                return cell == CellState::Shown;
+            });
+            if (hit) {
+                rstd::fill(line, CellState::Dying);
+            }
         });
     }
+    void collect() {
+        auto middle = rstd::stable_partition(_staticGrid, [](Line const& line) {
+            return !rstd::all_of(line, [](CellState cell) {
+                return cell == CellState::Dying;
+            });
+        });
+        std::fill(middle, end(_staticGrid), Line(_hor, CellState::Hidden));
+    }
     void drop() {
+        collect();
         auto res = _dynamicGrid;
         std::copy(begin(res) + 1, end(res), begin(res));
         rstd::fill(res.at(_vert - 1), CellState::Hidden);
 
         if (collision(res)) {
             stamp(_dynamicGrid);
-            _nothingFalling = true;
-        } else if (hitButtom(res)) {
-            stamp(res);
-            _dynamicGrid = res;
+            _dynamicGrid = createState(_hor, _vert, CellState::Hidden);
             _nothingFalling = true;
         } else {
             _dynamicGrid = res;
+            _bbPiece.y -= 1;
         }
+        kill();
     }
-    void initState(State& state) {
-        state.resize(_vert);
+    State createState(int width, int height, CellState val) {
+        State state;
+        state.resize(height);
         for (Line& line : state) {
-            line.resize(_hor);
-            rstd::fill(line, CellState::Hidden);
+            line.resize(width);
+            rstd::fill(line, val);
         }
+        return state;
     }
-    void moveHor(bool isRight) {
+    void movePieceHor(State& state, int offset) {
+        auto box = cut(state, _bbPiece.x, _bbPiece.y, _bbPiece.size);
+        paste(box, state, _bbPiece.x + offset, _bbPiece.y);
+    }
+    void moveHor(int offset) {
         if (_nothingFalling)
             return;
-        bool rightTouch = rstd::any_of(_dynamicGrid, [&](Line const& line) {
-            return line.at(isRight ? (_hor - 1) : 0) == CellState::Shown;
-        });
-        if (!rightTouch) {
-            for (Line& line : _dynamicGrid) {
-                if (isRight) {
-                    std::copy(begin(line), end(line) - 1, begin(line) + 1);
-                } else {
-                    std::copy(begin(line) + 1, end(line), begin(line));
-                }
-                line.at(isRight ? 0 : (_hor - 1)) = CellState::Hidden;
-            }
+        auto state = _dynamicGrid;
+        movePieceHor(state, offset);
+        if (!collision(state)) {
+            _dynamicGrid = state;
+            _bbPiece.x += offset;
         }
+    }
+    PieceOrientation::t nextOrientation(PieceOrientation::t prev) {
+        return OrientationCircle[(prev + 1) % OrientationCircle.size()];
     }
 public:
     Tetris(int hor, int vert)
-        : _hor(hor),
-          _vert(vert)
+        : _hor(hor + 8),
+          _vert(vert + 8)
     {
-        initState(_staticGrid);
-        initState(_dynamicGrid);
+        State inner = createState(hor, vert + 4, CellState::Hidden);
+        _staticGrid = createState(_hor, _vert, CellState::Shown);
+        paste(inner, _staticGrid, 4, 4);
+        _dynamicGrid = createState(_hor, _vert, CellState::Hidden);
     }
     CellState getState(int x, int y) {
-        if (_dynamicGrid.at(y).at(x) == CellState::Shown)
+        if (_dynamicGrid.at(y + 4).at(x + 4) == CellState::Shown)
             return CellState::Shown;
-        return _staticGrid.at(y).at(x);
+        return _staticGrid.at(y + 4).at(x + 4);
     }
     void step() {
         if (_nothingFalling)
@@ -604,14 +700,32 @@ public:
         drop();
     }
     void moveRight() {
-        moveHor(true);
+        moveHor(1);
     }
     void moveLeft() {
-        moveHor(false);
+        moveHor(-1);
+    }
+    void rotate() {
+        if (_bbPiece.y < 0)
+            return;
+        auto copy = _dynamicGrid;
+        int rightSpike = std::max(0, _bbPiece.x + _bbPiece.size - (_hor - 4));
+        int leftSpike = std::max(0, 4 - _bbPiece.x);
+        int offset = leftSpike - rightSpike;
+        movePieceHor(copy, offset);
+        auto newOrient = nextOrientation(_pieceOrientation);
+        paste(orientations[newOrient], copy, _bbPiece.x + offset, _bbPiece.y);
+        if (!collision(copy)) {
+            _dynamicGrid = copy;
+            _pieceOrientation = newOrient;
+            _bbPiece.x += offset;
+        }
     }
 };
 
-void copyState(Tetris& tetris, Trunk& trunk) {
+fseconds copyState(Tetris& tetris, Trunk& trunk) {
+    bool dying = false;
+    fseconds duration(1.0f);
     for (int x = 0; x < g_TetrisHor; ++x) {
         for (int y = 0; y < g_TetrisVert; ++y) {
             switch (tetris.getState(x, y)) {
@@ -622,12 +736,14 @@ void copyState(Tetris& tetris, Trunk& trunk) {
                 trunk.hide(x, y);
                 break;
             case CellState::Dying:
-                trunk.animateDestroy(x, y);
+                dying = true;
+                trunk.animateDestroy(x, y, duration);
                 break;
             default: assert(false);
             }
         }
     }
+    return dying ? duration : fseconds();
 }
 
 int main() {
@@ -653,6 +769,9 @@ int main() {
 
     int prevKP3State = GLFW_RELEASE;
     int prevKP1State = GLFW_RELEASE;
+    int prevKP6State = GLFW_RELEASE;
+
+    fseconds wait;
 
     while (!window.shouldClose()) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -668,10 +787,7 @@ int main() {
         auto now = chrono::high_resolution_clock::now();
         fseconds dt = chrono::duration_cast<fseconds>(now - past);
         elapsed += dt;
-        if (elapsed > fseconds(0.5f)) {
-            tetris.step();
-            elapsed = fseconds();
-        }
+        wait -= dt;
         past = now;
 
         BindLock<Program> programLock(program);
@@ -681,6 +797,14 @@ int main() {
         }
 
         window.swap();
+
+        if (wait > fseconds())
+            continue;
+
+        if (elapsed > fseconds(0.5f)) {
+            tetris.step();
+            elapsed = fseconds();
+        }
 
         bool leftPressed = window.getKey(GLFW_KEY_LEFT) == GLFW_PRESS;
         bool rightPressed = window.getKey(GLFW_KEY_RIGHT) == GLFW_PRESS;
@@ -702,14 +826,18 @@ int main() {
         if (window.getKey(GLFW_KEY_KP_1) == GLFW_RELEASE && prevKP1State == GLFW_PRESS) {
             tetris.moveLeft();
         }
+        if (window.getKey(GLFW_KEY_KP_6) == GLFW_RELEASE && prevKP6State == GLFW_PRESS) {
+            tetris.rotate();
+        }
         if (window.getKey(GLFW_KEY_KP_2)) {
             tetris.step();
         }
         prevKP3State = window.getKey(GLFW_KEY_KP_3);
         prevKP1State = window.getKey(GLFW_KEY_KP_1);
+        prevKP6State = window.getKey(GLFW_KEY_KP_6);
         cursor = window.getCursorPos();
 
-        copyState(tetris, meshes[trunk].obj<Trunk>());
+        wait = copyState(tetris, meshes[trunk].obj<Trunk>());
     }
     return 0;
 }
