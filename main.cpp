@@ -15,11 +15,43 @@
 #include <memory>
 #include <assert.h>
 #include <algorithm>
+#include <random>
+#include <ctime>
 
 namespace chrono = boost::chrono;
 using fseconds = chrono::duration<float>;
 const int g_TetrisHor = 10;
 const int g_TetrisVert = 20;
+
+template <typename T>
+struct Distrib { static_assert(sizeof(T) && false, "bad type"); };
+template <>
+struct Distrib<float> {
+    typedef typename std::uniform_real_distribution<float> type;
+};
+template <>
+struct Distrib<unsigned> {
+    typedef typename std::uniform_int_distribution<unsigned> type;
+};
+
+template <typename T>
+class Random {
+    typename Distrib<T>::type _distribution;
+    std::mt19937 _engine;
+    std::function<T()> _rndfunc;
+public:
+    Random(T from, T to)
+        : _distribution(from, to)
+    {
+#ifndef DEBUG
+        _engine.seed(time(NULL));
+#endif
+        _rndfunc = std::bind(_distribution, _engine);
+    }
+    T operator()() {
+        return _rndfunc();
+    }
+};
 
 class Mesh;
 void setScale(Mesh& mesh, glm::vec3 scale);
@@ -517,9 +549,11 @@ struct BBox {
     int x, y, size;
 };
 
-enum class PieceType {
-    Bar
-};
+namespace PieceType {
+    enum t {
+        I, T, count
+    };
+}
 
 namespace PieceOrientation {
     enum t {
@@ -554,11 +588,115 @@ auto barRight = State {
     Line { _0, _1, _0, _0 },
 };
 
-auto barLeft = barRight;
-auto barDown = barUp;
+auto pieceTup = State {
+    Line { _0, _1, _0 },
+    Line { _1, _1, _1 },
+    Line { _0, _0, _0 },
+};
 
-State orientations[4] = {
-    barUp, barRight, barDown, barLeft
+auto pieceTright = State {
+    Line { _0, _1, _0 },
+    Line { _0, _1, _1 },
+    Line { _0, _1, _0 },
+};
+
+auto pieceTdown = State {
+    Line { _0, _0, _0 },
+    Line { _1, _1, _1 },
+    Line { _0, _1, _0 },
+};
+
+auto pieceTleft = State {
+    Line { _0, _1, _0 },
+    Line { _1, _1, _0 },
+    Line { _0, _1, _0 },
+};
+
+auto pieceJup = State {
+    Line { _1, _1, _1 },
+    Line { _0, _0, _1 },
+    Line { _0, _0, _0 },
+};
+
+auto pieceJright = State {
+    Line { _0, _0, _1 },
+    Line { _0, _0, _1 },
+    Line { _0, _1, _1 },
+};
+
+auto pieceJdown = State {
+    Line { _0, _0, _0 },
+    Line { _1, _0, _0 },
+    Line { _1, _1, _1 },
+};
+
+auto pieceJleft = State {
+    Line { _1, _1, _0 },
+    Line { _1, _0, _0 },
+    Line { _1, _0, _0 },
+};
+
+auto pieceLup = State {
+    Line { _1, _1, _1 },
+    Line { _1, _0, _0 },
+    Line { _0, _0, _0 },
+};
+
+auto pieceLright = State {
+    Line { _1, _1, _0 },
+    Line { _0, _1, _0 },
+    Line { _0, _1, _0 },
+};
+
+auto pieceLdown = State {
+    Line { _0, _0, _1 },
+    Line { _1, _1, _1 },
+    Line { _0, _0, _0 },
+};
+
+auto pieceLleft = State {
+    Line { _1, _0, _0 },
+    Line { _1, _0, _0 },
+    Line { _1, _1, _0 },
+};
+
+auto pieceO = State {
+    Line { _1, _1 },
+    Line { _1, _1 },
+};
+
+auto pieceSup = State {
+    Line { _0, _1, _1 },
+    Line { _1, _1, _0 },
+    Line { _0, _0, _0 },
+};
+
+auto pieceSright = State {
+    Line { _1, _0, _0 },
+    Line { _1, _1, _0 },
+    Line { _0, _1, _0 },
+};
+
+auto pieceZup = State {
+    Line { _1, _1, _0 },
+    Line { _0, _1, _1 },
+    Line { _0, _0, _0 },
+};
+
+auto pieceZright = State {
+    Line { _0, _0, _1 },
+    Line { _0, _1, _1 },
+    Line { _0, _1, _0 },
+};
+
+State pieces[][4] = {
+    { barUp, barRight, barUp, barRight },
+    { pieceJup, pieceJright, pieceJdown, pieceJleft },
+    { pieceLup, pieceLright, pieceLdown, pieceLleft },
+    { pieceO, pieceO, pieceO, pieceO },
+    { pieceSup, pieceSright, pieceSup, pieceSright },
+    { pieceTup, pieceTright, pieceTdown, pieceTleft },
+    { pieceZup, pieceZright, pieceZup, pieceZright },
 };
 
 class Tetris {
@@ -567,8 +705,9 @@ class Tetris {
     State _staticGrid;
     State _dynamicGrid;
     BBox _bbPiece;
-    PieceType _piece;
+    PieceType::t _piece;
     PieceOrientation::t _pieceOrientation;
+    Random<unsigned> _random;
     State cut(State& source, unsigned posX, unsigned posY, unsigned size) {
         State res(size);
         for (size_t y = 0; y < size; ++y) {
@@ -590,9 +729,10 @@ class Tetris {
         }
     }
     void drawPiece() {
-        _bbPiece = { 7, _vert - 9, 4 };
-        paste(barUp, _dynamicGrid, _bbPiece.x, _bbPiece.y);
-        _piece = PieceType::Bar;
+        _piece = static_cast<PieceType::t>(_random());
+        State piece = pieces[_piece][PieceOrientation::Up];
+        _bbPiece = { 7, _vert - 4 - (int)piece.size(), 4 };
+        paste(piece, _dynamicGrid, _bbPiece.x, _bbPiece.y);
     }
     void nextPiece() {
         _dynamicGrid = createState(_hor, _vert, CellState::Hidden);
@@ -682,7 +822,8 @@ class Tetris {
 public:
     Tetris(int hor, int vert)
         : _hor(hor + 8),
-          _vert(vert + 8)
+          _vert(vert + 8),
+          _random(0, PieceType::count - 1)
     {
         State inner = createState(hor, vert + 4, CellState::Hidden);
         _staticGrid = createState(_hor, _vert, CellState::Shown);
@@ -714,7 +855,7 @@ public:
         int offset = leftSpike - rightSpike;
         movePieceHor(copy, offset);
         auto newOrient = nextOrientation(_pieceOrientation);
-        paste(orientations[newOrient], copy, _bbPiece.x + offset, _bbPiece.y);
+        paste(pieces[_piece][newOrient], copy, _bbPiece.x + offset, _bbPiece.y);
         if (!collision(copy)) {
             _dynamicGrid = copy;
             _pieceOrientation = newOrient;
