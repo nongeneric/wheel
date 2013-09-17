@@ -13,6 +13,14 @@ add_definitions(-DDEBUG)
 set(CMAKE_CXX_FLAGS "-g -O0 -Wall -Werror -std=c++11 ${CMAKE_CXX_FLAGS}")
 
 set(SRC_LIST
+Tetris.h
+Tetris.cpp
+Program.h
+Program.cpp
+Window.h
+Window.cpp
+Random.h
+rstd.h
 main.cpp
 )
 
@@ -30,10 +38,14 @@ set(LINUX_LIB_DEPS
     Xi
 )
 
+set(LIBS ${LINUX_LIB_DEPS})
+if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+    set(LIBS ${WINDOWS_LIB_DEPS})
+endif()
+
 add_executable(${PROJECT_NAME} ${SRC_LIST})
 target_link_libraries(${PROJECT_NAME}
     glfw3
-
-    ${WIN_LIB_DEPS}
+    ${LIBS}
     ${Boost_LIBRARIES}
 )
