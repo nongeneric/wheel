@@ -11,7 +11,7 @@ struct BBox {
 
 namespace PieceType {
     enum t {
-        I, T, count
+        I, J, L, O, S, T, Z, count
     };
 }
 
@@ -310,10 +310,13 @@ public:
         return _staticGrid.at(y + 4).at(x + 4);
     }
 
-    void step() {
-        if (_nothingFalling)
+    bool step() {
+        if (_nothingFalling) {
             nextPiece();
+            return true;
+        }
         drop();
+        return false;
     }
 
     void moveRight() {
@@ -350,8 +353,8 @@ CellState Tetris::getState(int x, int y) {
     return _impl->getState(x, y);
 }
 
-void Tetris::step() {
-    _impl->step();
+bool Tetris::step() {
+    return _impl->step();
 }
 
 void Tetris::moveRight() {

@@ -12,7 +12,7 @@ class Tetris {
 public:
     Tetris(int hor, int vert);
     CellState getState(int x, int y);
-    void step();
+    bool step();
     void moveRight();
     void moveLeft();
     void rotate();

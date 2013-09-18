@@ -236,6 +236,7 @@ Mesh loadMesh() {
 
 class Trunk {
     std::vector<Mesh> _cubes;
+    std::vector<Mesh> _border;
     glm::mat4 _pos;
     int _hor, _vert;
     Mesh& at(int x, int y) {
@@ -248,9 +249,17 @@ public:
         for (int y = 0; y < vert; ++y) {
             for (int x = 0; x < hor; ++x) {
                 Mesh cube = loadMesh();
-                setPos(cube, glm::vec3 {x * 1.3, y * 1.3, 0});
+                setPos(cube, glm::vec3 {x * 1.3, y * 1.3 + 0.3, 0});
                 _cubes.push_back(cube);
             }
+        }
+        for (int y = 0; y < vert; ++y) {
+            Mesh left = loadMesh();
+            setPos(left, glm::vec3 { -1.3, y * 1.3 + 0.3, 0 });
+            _border.push_back(left);
+            Mesh right = loadMesh();
+            setPos(right, glm::vec3 { hor * 1.3, y * 1.3 + 0.3, 0 });
+            _border.push_back(right);
         }
     }
     void animateDestroy(int x, int y, fseconds duration) {
@@ -270,6 +279,8 @@ public:
 
 void draw(Trunk& t, int mv_location, int mvp_location, glm::mat4 vp, Program& program) {
     for (Mesh& m : t._cubes)
+        ::draw(m, mv_location, mvp_location, vp * t._pos, program);
+    for (Mesh& m : t._border)
         ::draw(m, mv_location, mvp_location, vp * t._pos, program);
 }
 
@@ -353,16 +364,21 @@ std::string fragmentShader =
         "out vec4 outputColor;\n"
         "uniform sampler2D gSampler;\n"
         "uniform float ambient;\n"
-        "void main() {\n"
-        "   vec3 direction = vec3(-1.0, 0.0, -1.0);\n"
+        // white color
+        "vec4 getDiffuseFactor(vec3 direction, vec4 baseColor) {\n"
         "   float factor = dot(normalize(f_normal), -direction);\n"
         "   vec4 color;\n"
         "   if (factor > 0) {\n"
-        "       color = vec4(1.0, 1.0, 1.0, 1.0) * factor;\n"
+        "       color = baseColor * factor;\n"
         "   } else {\n"
         "       color = vec4(0.0, 0.0, 0.0, 0.0);\n"
         "   }\n"
-        "   outputColor = texture2D(gSampler, f_texCoord.st) * (ambient + color);\n"
+        "   return color;\n"
+        "}\n"
+        "void main() {\n"
+        "   vec4 source1 = getDiffuseFactor(vec3(-1.0, 0.0, -1.0), vec4(1,1,1,1));\n"
+        "   vec4 source2 = getDiffuseFactor(vec3(1.0, 0.0, 1.0), vec4(1,0,0,1));\n"
+        "   outputColor = texture2D(gSampler, f_texCoord.st) * (ambient + source1 + source2);\n"
         "}"
         ;
 
@@ -437,6 +453,7 @@ int main() {
     int prevKP3State = GLFW_RELEASE;
     int prevKP1State = GLFW_RELEASE;
     int prevKP6State = GLFW_RELEASE;
+    int prevKP2State = GLFW_RELEASE;
 
     fseconds wait;
 
@@ -448,7 +465,8 @@ int main() {
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glActiveTexture(tex);
-
+    bool nextPiece = false;
+    bool fastFall = false;
     while (!window.shouldClose()) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -480,8 +498,8 @@ int main() {
         if (wait > fseconds())
             continue;
 
-        if (elapsed > fseconds(0.5f)) {
-            tetris.step();
+        if (elapsed > fseconds(0.4f)) {
+            nextPiece |= tetris.step();
             elapsed = fseconds();
         }
 
@@ -499,21 +517,29 @@ int main() {
             glm::vec2 delta = window.getCursorPos() - cursor;
             cameraAngles += glm::vec3 { -0.5 * delta.y, -0.5 * delta.x, 0 };
         }
-        if (window.getKey(GLFW_KEY_KP_3) == GLFW_RELEASE && prevKP3State == GLFW_PRESS) {
+        if (window.getKey(GLFW_KEY_KP_3) == GLFW_PRESS && prevKP3State == GLFW_RELEASE) {
             tetris.moveRight();
         }
-        if (window.getKey(GLFW_KEY_KP_1) == GLFW_RELEASE && prevKP1State == GLFW_PRESS) {
+        if (window.getKey(GLFW_KEY_KP_1) == GLFW_PRESS && prevKP1State == GLFW_RELEASE) {
             tetris.moveLeft();
         }
-        if (window.getKey(GLFW_KEY_KP_6) == GLFW_RELEASE && prevKP6State == GLFW_PRESS) {
+        if (window.getKey(GLFW_KEY_KP_6) == GLFW_PRESS && prevKP6State == GLFW_RELEASE) {
             tetris.rotate();
+        }        
+        if (window.getKey(GLFW_KEY_KP_2) == GLFW_PRESS && prevKP2State == GLFW_RELEASE) {
+            fastFall = true;
         }
-        if (window.getKey(GLFW_KEY_KP_2)) {
-            tetris.step();
+        if (fastFall) {
+            nextPiece |= tetris.step();
+        }
+        if (nextPiece) {
+            fastFall = false;
+            nextPiece = false;
         }
         prevKP3State = window.getKey(GLFW_KEY_KP_3);
         prevKP1State = window.getKey(GLFW_KEY_KP_1);
         prevKP6State = window.getKey(GLFW_KEY_KP_6);
+        prevKP2State = window.getKey(GLFW_KEY_KP_2);
         cursor = window.getCursorPos();
 
         wait = copyState(tetris, meshes[trunk].obj<Trunk>());
