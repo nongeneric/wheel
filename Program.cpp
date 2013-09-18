@@ -75,6 +75,18 @@ void Program::setUniform(GLuint location, const glm::mat4 &matrix) {
     }
 }
 
+void Program::setUniform(GLuint location, const glm::vec3 &matrix) {
+    glUniform3fv(location, 3, glm::value_ptr(matrix));
+}
+
+void Program::setUniform(GLuint location, GLint value) {
+    glUniform1i(location, value);
+}
+
+void Program::setUniform(GLuint location, GLfloat value) {
+    glUniform1f(location, value);
+}
+
 void Program::bind() {
     glUseProgram(_program);
 }

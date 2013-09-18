@@ -3,13 +3,15 @@
 #include "Program.h"
 #include "Tetris.h"
 
-#include <boost/log/trivial.hpp>
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 #define GLM_FORCE_CXX11
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <boost/any.hpp>
 #include <boost/chrono.hpp>
+#include <boost/log/trivial.hpp>
 
 #include <functional>
 #include <stdexcept>
@@ -17,12 +19,17 @@
 #include <vector>
 #include <memory>
 #include <assert.h>
-#include <algorithm>
 
 namespace chrono = boost::chrono;
 using fseconds = chrono::duration<float>;
 const int g_TetrisHor = 10;
 const int g_TetrisVert = 20;
+
+struct Vertex {
+    glm::vec3 pos;
+    glm::vec2 uv;
+    glm::vec3 normal;
+};
 
 class Mesh;
 void setScale(Mesh& mesh, glm::vec3 scale);
@@ -103,16 +110,17 @@ public:
     }
 };
 
-typedef Buffer<glm::vec4, GL_ARRAY_BUFFER> VertexBuffer;
+typedef Buffer<Vertex, GL_ARRAY_BUFFER> VertexBuffer;
 typedef Buffer<GLshort, GL_ELEMENT_ARRAY_BUFFER> IndexBuffer;
 
 void init_vao(VertexBuffer buffer) {
     buffer.bind();
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-    auto colorsOffset = reinterpret_cast<void*>(buffer.size() * sizeof(glm::vec4) / 2);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, colorsOffset);
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)12);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)20);
 }
 
 class Mesh {
@@ -129,7 +137,7 @@ public:
         indices.bind();
     }
     // assumes a program is bound, doesn't manage its position
-    friend void draw(Mesh& mesh, int mvp_location, glm::mat4 vp, Program& program);
+    friend void draw(Mesh& mesh, int mv_location, int mvp_location, glm::mat4 vp, Program& program);
     friend void setPos(Mesh& mesh, glm::vec3 pos);
     friend void setScale(Mesh& mesh, glm::vec3 scale);
     friend void setAnimation(Mesh& mesh, ScaleAnimation a);
@@ -144,10 +152,11 @@ glm::mat4 getTransform(Mesh& mesh) {
     return mesh._pos * mesh._scale;
 }
 
-void draw(Mesh& mesh, int mvp_location, glm::mat4 vp, Program& program) {
+void draw(Mesh& mesh, int world_location, int mvp_location, glm::mat4 vp, Program& program) {
     BindLock<VAO> vaoLock(mesh._vao);
     glm::mat4 mvp = vp * getTransform(mesh);
     program.setUniform(mvp_location, mvp);
+    program.setUniform(world_location, getTransform(mesh));
     glDrawElements(GL_TRIANGLES, mesh._indicesCount, GL_UNSIGNED_SHORT, 0);
 }
 
@@ -175,51 +184,54 @@ glm::mat4 getViewMatrix(glm::vec3 const& angles, glm::vec3 const& pos) {
     return translation * rotation;
 }
 
-Mesh genCube() {
+Mesh genZXPlato(GLfloat tex, GLfloat size) {
     VertexBuffer vertices{{
-        glm::vec4 { 0.5f, 0.5f, 0.0f, 1.0f },
-        glm::vec4 { 0.5f, -0.5f, 0.0f, 1.0f },
-        glm::vec4 { -0.5f, -0.5f, 0.0f, 1.0f },
-        glm::vec4 { -0.5f, 0.5f, 0.0f, 1.0f },
-        glm::vec4 { 0.5f, 0.5f, 1.0f, 1.0f },
-        glm::vec4 { 0.5f, -0.5f, 1.0f, 1.0f },
-        glm::vec4 { -0.5f, -0.5f, 1.0f, 1.0f },
-        glm::vec4 { -0.5f, 0.5f, 1.0f, 1.0f },
-        // colors
-        glm::vec4 { 1.0f, 0.0f, 0.0f, 1.0f },
-        glm::vec4 { 0.0f, 1.0f, 0.0f, 1.0f },
-        glm::vec4 { 0.0f, 0.0f, 1.0f, 1.0f },
-        glm::vec4 { 1.0f, 0.0f, 0.0f, 1.0f },
-        glm::vec4 { 0.0f, 1.0f, 0.0f, 1.0f },
-        glm::vec4 { 0.0f, 0.0f, 1.0f, 1.0f },
-        glm::vec4 { 1.0f, 0.0f, 0.0f, 1.0f },
-        glm::vec4 { 0.0f, 1.0f, 0.0f, 1.0f },
-    }};
-    enum { b1, b2, b3, b4, u1, u2, u3, u4 };
-    IndexBuffer indices{{
-        b1, u1, b2, b2, u2, u1,
-        b2, u2, b3, b3, u3, u2,
-        b3, u3, b4, b4, u4, u3,
-        b4, u4, b1, b1, u1, u4,
-        b1, b2, b4, b4, b3, b2,
-        u1, u2, u4, u4, u3, u2
-    }};
-    return Mesh(vertices, indices);
-}
-
-Mesh genZXPlato(glm::vec4 color, GLfloat size) {
-    VertexBuffer vertices{{
-        glm::vec4 { 0.0f, 0.0f, 0.0f, 1.0f },
-        glm::vec4 { size, 0.0f, 0.0f, 1.0f },
-        glm::vec4 { size, 0.0f, size, 1.0f },
-        glm::vec4 { 0.0f, 0.0f, size, 1.0f },
-        color, color, color, color
+        {glm::vec3 {0.0f, 0.0f, 0.0f}, glm::vec2 {tex, tex}},
+        {glm::vec3 {size, 0.0f, 0.0f}, glm::vec2 {0, 0}},
+        {glm::vec3 {size, 0.0f, size}, glm::vec2 {tex, tex}},
+        {glm::vec3 {0.0f, 0.0f, size}, glm::vec2 {0, 0}},
     }};
     enum { b1, b2, b3, b4 };
     IndexBuffer indices{{
         b1, b2, b3, b3, b1, b4
     }};
     return Mesh(vertices, indices);
+}
+
+Mesh loadMesh() {
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile("/home/tr/Desktop/cube.ply",
+         aiProcess_CalcTangentSpace       |
+         aiProcess_Triangulate            |
+         aiProcess_JoinIdenticalVertices);
+    if (!scene) {
+        BOOST_LOG_TRIVIAL(error) << importer.GetErrorString();
+        throw std::runtime_error("can't load a mesh");
+    }
+    assert(scene->HasMeshes());
+    assert(scene->mNumMeshes == 1);
+    std::vector<Vertex> vertices;
+    aiMesh* mesh = scene->mMeshes[0];
+    assert(mesh->HasNormals());
+    for (size_t i = 0; i < mesh->mNumVertices; ++i) {
+        vertices.push_back({
+            glm::vec3(mesh->mVertices[i].x,
+                      mesh->mVertices[i].y,
+                      mesh->mVertices[i].z),
+            glm::vec2(),
+            glm::vec3(mesh->mNormals[i].x,
+                      mesh->mNormals[i].y,
+                      mesh->mNormals[i].z)});
+    }
+    std::vector<short> indices;
+    for (size_t i = 0; i < mesh->mNumFaces; ++i) {
+        aiFace face = mesh->mFaces[i];
+        assert(face.mNumIndices == 3);
+        indices.push_back(face.mIndices[0]);
+        indices.push_back(face.mIndices[1]);
+        indices.push_back(face.mIndices[2]);
+    }
+    return Mesh(VertexBuffer(vertices), IndexBuffer(indices));
 }
 
 class Trunk {
@@ -235,7 +247,7 @@ public:
     {
         for (int y = 0; y < vert; ++y) {
             for (int x = 0; x < hor; ++x) {
-                Mesh cube = genCube();
+                Mesh cube = loadMesh();
                 setPos(cube, glm::vec3 {x * 1.3, y * 1.3, 0});
                 _cubes.push_back(cube);
             }
@@ -251,14 +263,14 @@ public:
         setScale(at(x, y), glm::vec3 {1, 1, 1});
     }
     friend void animate(Trunk& trunk, fseconds dt);
-    friend void draw(Trunk&, int, glm::mat4, Program&);
+    friend void draw(Trunk&, int, int, glm::mat4, Program&);
     friend void setPos(Trunk&, glm::vec3);
     friend glm::mat4 const& getPos(Trunk&);
 };
 
-void draw(Trunk& t, int mvp_location, glm::mat4 vp, Program& program) {
+void draw(Trunk& t, int mv_location, int mvp_location, glm::mat4 vp, Program& program) {
     for (Mesh& m : t._cubes)
-        ::draw(m, mvp_location, vp * t._pos, program);
+        ::draw(m, mv_location, mvp_location, vp * t._pos, program);
 }
 
 void setPos(Trunk& trunk, glm::vec3 pos) {
@@ -274,7 +286,7 @@ class MeshWrapper {
     struct concept {
         virtual ~concept() = default;
         virtual concept* copy_() = 0;
-        virtual void draw_(int mvp_location, glm::mat4 vp, Program& program) = 0;
+        virtual void draw_(int mv_location, int mvp_location, glm::mat4 vp, Program& program) = 0;
         virtual void setPos_(glm::vec3) = 0;
         virtual void animate_(fseconds dt) = 0;
     };
@@ -284,8 +296,8 @@ class MeshWrapper {
         virtual concept* copy_() override {
             return new model(*this);
         }
-        virtual void draw_(int mvp_location, glm::mat4 vp, Program& program) override {
-            ::draw(data_, mvp_location, vp, program);
+        virtual void draw_(int mv_location, int mvp_location, glm::mat4 vp, Program& program) override {
+            ::draw(data_, mv_location, mvp_location, vp, program);
         }
         virtual void setPos_(glm::vec3 pos) {
             ::setPos(data_, pos);
@@ -301,8 +313,8 @@ public:
     MeshWrapper(T x) : _ptr(new model<T>(std::move(x))) { }
     MeshWrapper(MeshWrapper const& w) : _ptr(w._ptr->copy_()) { }
     MeshWrapper(MeshWrapper&& w) : _ptr(std::move(w._ptr)) { }
-    friend void draw(MeshWrapper& w, int mvp_location, glm::mat4 vp, Program& program) {
-        w._ptr->draw_(mvp_location, vp, program);
+    friend void draw(MeshWrapper& w, int mv_location, int mvp_location, glm::mat4 vp, Program& program) {
+        w._ptr->draw_(mv_location, mvp_location, vp, program);
     }
     friend void setPos(MeshWrapper& w, glm::vec3 pos) {
         w._ptr->setPos_(pos);
@@ -320,37 +332,48 @@ std::string vertexShader =
         "#version 330\n"
 
         "uniform mat4 mvp;\n"
+        "uniform mat4 world;\n"
         "layout(location = 0) in vec4 position;\n"
-        "layout(location = 1) in vec4 color;\n"
-        "smooth out vec4 f_color;\n"
+        "layout(location = 1) in vec2 texCoord;\n"
+        "layout(location = 2) in vec3 normal;\n"
+        "out vec2 f_texCoord;\n"
+        "out vec3 f_normal;\n"
         "void main() {\n"
         "    gl_Position = mvp * position;\n"
-        "    f_color = color;"
+        "    f_texCoord = texCoord;\n"
+        "    f_normal = (world * vec4(normal, 0.0)).xyz;\n"
         "}\n"
         ;
 
 std::string fragmentShader =
         "#version 330\n"
 
-        "smooth in vec4 f_color;\n"
+        "in vec2 f_texCoord;\n"
+        "in vec3 f_normal;\n"
         "out vec4 outputColor;\n"
+        "uniform sampler2D gSampler;\n"
+        "uniform float ambient;\n"
         "void main() {\n"
-        "   outputColor = f_color;\n"
+        "   vec3 direction = vec3(-1.0, 0.0, -1.0);\n"
+        "   float factor = dot(normalize(f_normal), -direction);\n"
+        "   vec4 color;\n"
+        "   if (factor > 0) {\n"
+        "       color = vec4(1.0, 1.0, 1.0, 1.0) * factor;\n"
+        "   } else {\n"
+        "       color = vec4(0.0, 0.0, 0.0, 0.0);\n"
+        "   }\n"
+        "   outputColor = texture2D(gSampler, f_texCoord.st) * (ambient + color);\n"
         "}"
         ;
 
 enum { red_plato, green_plato, blue_plato, gray_plato, trunk };
 std::vector<MeshWrapper> genMeshes() {
-    glm::vec4 red { 1, 0, 0, 1 };
-    glm::vec4 green { 0, 1, 0, 1 };
-    glm::vec4 blue { 0, 0, 1, 1 };
-    glm::vec4 gray { 0.5, 0.5, 0.5, 1 };
     GLfloat plato_size = 20.0f;
     std::vector<MeshWrapper> meshes {
-        genZXPlato(red, plato_size),
-        genZXPlato(green, plato_size),
-        genZXPlato(blue, plato_size),
-        genZXPlato(gray, plato_size),
+        genZXPlato(0.0f, plato_size),
+        genZXPlato(1.0f, plato_size),
+        genZXPlato(0.0f, plato_size),
+        genZXPlato(1.0f, plato_size),
         Trunk(g_TetrisHor, g_TetrisVert)
     };
 
@@ -393,6 +416,10 @@ int main() {
     program.addFragmentShader(fragmentShader);
     program.link();
     const GLuint U_MVP = program.getUniformLocation("mvp");
+    const GLuint U_WORLD = program.getUniformLocation("world");
+    const GLuint U_GSAMPLER = program.getUniformLocation("gSampler");
+    const GLuint U_AMBIENT = program.getUniformLocation("ambient");
+    //const GLuint U_DIFF_DIRECTION = program.getUniformLocation("diffDirection");
 
     auto meshes = genMeshes();
 
@@ -413,6 +440,15 @@ int main() {
 
     fseconds wait;
 
+    GLuint tex;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    GLuint color[] = { 0xFFFFFFFF, 0xFF000000 };
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 2, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, color);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glActiveTexture(tex);
+
     while (!window.shouldClose()) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -431,9 +467,12 @@ int main() {
         past = now;
 
         BindLock<Program> programLock(program);
+        program.setUniform(U_GSAMPLER, 0);
+        program.setUniform(U_AMBIENT, 0.4f);
+        //program.setUniform(U_DIFF_DIRECTION, glm::vec3(0, 0, 1));
         for (MeshWrapper& mesh : meshes) {
             animate(mesh, dt);
-            draw(mesh, U_MVP, vpMatrix, program);
+            draw(mesh, U_WORLD, U_MVP, vpMatrix, program);
         }
 
         window.swap();
