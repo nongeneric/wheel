@@ -22,6 +22,7 @@
 #include <vector>
 #include <memory>
 #include <assert.h>
+#include <map>
 
 namespace chrono = boost::chrono;
 using fseconds = chrono::duration<float>;
@@ -394,8 +395,8 @@ std::string fragmentShader =
         "   return color;\n"
         "}\n"
         "void main() {\n"
-        "   vec4 source1 = getDiffuseFactor(vec3(-1.0, 0.0, -1.0), vec4(1,1,1,1));\n"
-        "   vec4 source2 = getDiffuseFactor(vec3(1.0, 0.0, 1.0), vec4(1,0,0,1));\n"
+        "   vec4 source1 = getDiffuseFactor(vec3(-1.0, 0.0, -1.0), vec4(1,1,1,0.6));\n"
+        "   vec4 source2 = getDiffuseFactor(vec3(1.0, 0.0, 1.0), vec4(1,0,0,0.4));\n"
         "   outputColor = texture2D(gSampler, f_texCoord.st) * (ambient + source1 + source2);\n"
         "}"
         ;
@@ -555,6 +556,63 @@ public:
     }
 };
 
+class Keyboard {
+    struct ButtonState {
+        int state;
+        fseconds elapsed;
+        fseconds repeat;
+    };
+    fseconds _repeatTime = fseconds(0.3f);
+    std::map<int, ButtonState> _prevStates;
+    std::map<int, std::function<void()>> _downHandlers;
+    std::map<int, std::function<void()>> _repeatHandlers;
+    Window* _window;
+    void invokeHandler(int key, std::map<int, std::function<void()>> const& handlers) {
+        auto it = handlers.find(key);
+        if (it != end(handlers)) {
+            it->second();
+        }
+    }
+public:
+    Keyboard(Window* window) : _window(window) {  }
+    void advance(fseconds dt) {
+        for (auto& pair : _prevStates) {
+            int curState = _window->getKey(pair.first);
+            int prevState = pair.second.state;
+            if (curState == GLFW_PRESS && prevState == GLFW_RELEASE) {
+                invokeHandler(pair.first, _downHandlers);
+                invokeHandler(pair.first, _repeatHandlers);
+                pair.second.elapsed = fseconds();
+            }
+            if (curState == GLFW_PRESS &&
+                prevState == GLFW_PRESS &&
+                pair.second.elapsed > pair.second.repeat)
+            {
+                pair.second.elapsed = fseconds();
+                invokeHandler(pair.first, _repeatHandlers);
+            }
+            pair.second = { _window->getKey(pair.first),
+                            pair.second.elapsed + dt,
+                            pair.second.repeat };
+        }
+    }
+
+    void onDown(int key, std::function<void()> handler) {
+        auto it = _prevStates.find(key);
+        if (it == end(_prevStates)) {
+            _prevStates[key] = { GLFW_RELEASE };
+        }
+        _downHandlers[key] = handler;
+    }
+
+    void onRepeat(int key, fseconds every, std::function<void()> handler) {
+        _prevStates[key] = { GLFW_RELEASE, fseconds(), every };
+        _repeatHandlers[key] = handler;
+    }
+
+    void stopRepeats(int);
+};
+
 int main() {
     Window window("wheel");
     //Program bitmapProgram = createBitmapProgram();
@@ -577,17 +635,12 @@ int main() {
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
+    glfwSwapInterval(1); // vsync on
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glClearColor(0,0,0,0);
     glm::vec2 cursor{ 300, 300 };
     auto past = chrono::high_resolution_clock::now();
     fseconds elapsed;
-
-    int prevKP3State = GLFW_RELEASE;
-    int prevKP1State = GLFW_RELEASE;
-    int prevKP6State = GLFW_RELEASE;
-    int prevKP2State = GLFW_RELEASE;
-
     fseconds wait;
 
     Texture tex;
@@ -596,6 +649,9 @@ int main() {
 
     HudElem hudLines, hudScore;
     Text text;
+
+    Keyboard keys(&window);
+    bool keysInit = false;
 
     bool nextPiece = false;
     bool fastFall = false;
@@ -661,31 +717,44 @@ int main() {
             elapsed = fseconds();
         }
 
-        bool leftPressed = window.getKey(GLFW_KEY_LEFT) == GLFW_PRESS;
-        bool rightPressed = window.getKey(GLFW_KEY_RIGHT) == GLFW_PRESS;
-        bool upPressed = window.getKey(GLFW_KEY_UP) == GLFW_PRESS;
-        bool downPressed = window.getKey(GLFW_KEY_DOWN) == GLFW_PRESS;
+        int leftPressed = 0, rightPressed = 0, upPressed = 0, downPressed = 0;
+        if (!keysInit) {
+            keys.onRepeat(GLFW_KEY_KP_1, fseconds(0.1f), [&]() {
+                tetris.moveLeft();
+            });
+            keys.onRepeat(GLFW_KEY_KP_3, fseconds(0.1f), [&]() {
+                tetris.moveRight();
+            });
+            keys.onRepeat(GLFW_KEY_KP_6, fseconds(2.0f), [&]() {
+                tetris.rotate();
+            });
+            keys.onRepeat(GLFW_KEY_KP_2, fseconds(0.1f), [&]() {
+                fastFall = true;
+            });
+            keys.onRepeat(GLFW_KEY_LEFT, fseconds(0.015f), [&]() {
+                leftPressed = 1;
+            });
+            keys.onRepeat(GLFW_KEY_RIGHT, fseconds(0.015f), [&]() {
+                rightPressed = 1;
+            });
+            keys.onRepeat(GLFW_KEY_UP, fseconds(0.015f), [&]() {
+                upPressed = 1;
+            });
+            keys.onRepeat(GLFW_KEY_DOWN, fseconds(0.015f), [&]() {
+                downPressed = 1;
+            });
+            keysInit = true;
+        }
+        keys.advance(dt);
         cameraPos += glm::vec3 {
-            -0.5 * leftPressed + 0.5 * rightPressed,
+            -0.25 * leftPressed + 0.25 * rightPressed,
             0,
-            -0.5 * upPressed + 0.5 * downPressed
+            -0.25 * upPressed + 0.25 * downPressed
         };
         bool mouseLeftPressed = window.getMouseButton(GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
         if (mouseLeftPressed) {
             glm::vec2 delta = window.getCursorPos() - cursor;
             cameraAngles += glm::vec3 { -0.5 * delta.y, -0.5 * delta.x, 0 };
-        }
-        if (window.getKey(GLFW_KEY_KP_3) == GLFW_PRESS && prevKP3State == GLFW_RELEASE) {
-            tetris.moveRight();
-        }
-        if (window.getKey(GLFW_KEY_KP_1) == GLFW_PRESS && prevKP1State == GLFW_RELEASE) {
-            tetris.moveLeft();
-        }
-        if (window.getKey(GLFW_KEY_KP_6) == GLFW_PRESS && prevKP6State == GLFW_RELEASE) {
-            tetris.rotate();
-        }
-        if (window.getKey(GLFW_KEY_KP_2) == GLFW_PRESS && prevKP2State == GLFW_RELEASE) {
-            fastFall = true;
         }
         if (fastFall && !normalStep) {
             nextPiece |= tetris.step();
@@ -694,10 +763,6 @@ int main() {
             fastFall = false;
             nextPiece = false;
         }
-        prevKP3State = window.getKey(GLFW_KEY_KP_3);
-        prevKP1State = window.getKey(GLFW_KEY_KP_1);
-        prevKP6State = window.getKey(GLFW_KEY_KP_6);
-        prevKP2State = window.getKey(GLFW_KEY_KP_2);
         cursor = window.getCursorPos();
 
         wait = copyState(tetris, meshes[trunk].obj<Trunk>());

@@ -86,7 +86,7 @@ public:
         assert(!error);
 
         int bmWidth = 2000, bmHeight = 2 * pxHeight;
-        BitmapPtr fbitmap( FreeImage_Allocate(bmWidth, bmHeight, 8) );
+        BitmapPtr fbitmap = make_bitmap_ptr( FreeImage_Allocate(bmWidth, bmHeight, 8) );
         assert(fbitmap.get());
 
         int pen_x = 0;
@@ -112,8 +112,8 @@ public:
             pen_x += entry.advanceX / 64;
             prev = glyph_index;
         }
-        BitmapPtr fcropped( FreeImage_Copy(fbitmap.get(), 0, pxHeight * 1.1f, pen_x, 0) );
-        BitmapPtr fbitmap32( FreeImage_ConvertTo32Bits(fcropped.get()) );
+        BitmapPtr fcropped = make_bitmap_ptr( FreeImage_Copy(fbitmap.get(), 0, pxHeight * 1.1f, pen_x, 0) );
+        BitmapPtr fbitmap32 = make_bitmap_ptr( FreeImage_ConvertTo32Bits(fcropped.get()) );
         for (int y = 0; y < bmHeight; ++y) {
             for (int x = 0; x < bmWidth; ++x) {
                 RGBQUAD color;
