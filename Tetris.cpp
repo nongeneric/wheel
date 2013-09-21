@@ -35,23 +35,23 @@ auto _1 = CellState::Shown;
 auto _0 = CellState::Hidden;
 
 auto barUp = State {
+    Line { _0, _0, _0, _0 },
+    Line { _0, _0, _0, _0 },
     Line { _1, _1, _1, _1 },
-    Line { _0, _0, _0, _0 },
-    Line { _0, _0, _0, _0 },
     Line { _0, _0, _0, _0 },
 };
 
 auto barRight = State {
-    Line { _0, _1, _0, _0 },
-    Line { _0, _1, _0, _0 },
-    Line { _0, _1, _0, _0 },
-    Line { _0, _1, _0, _0 },
+    Line { _0, _0, _1, _0 },
+    Line { _0, _0, _1, _0 },
+    Line { _0, _0, _1, _0 },
+    Line { _0, _0, _1, _0 },
 };
 
 auto pieceTup = State {
-    Line { _0, _1, _0 },
-    Line { _1, _1, _1 },
     Line { _0, _0, _0 },
+    Line { _1, _1, _1 },
+    Line { _0, _1, _0 },
 };
 
 auto pieceTright = State {
@@ -61,9 +61,9 @@ auto pieceTright = State {
 };
 
 auto pieceTdown = State {
-    Line { _0, _0, _0 },
-    Line { _1, _1, _1 },
     Line { _0, _1, _0 },
+    Line { _1, _1, _1 },
+    Line { _0, _0, _0 },
 };
 
 auto pieceTleft = State {
@@ -79,21 +79,21 @@ auto pieceJup = State {
 };
 
 auto pieceJright = State {
-    Line { _0, _0, _1 },
-    Line { _0, _0, _1 },
-    Line { _0, _1, _1 },
+    Line { _0, _1, _0 },
+    Line { _0, _1, _0 },
+    Line { _1, _1, _0 },
 };
 
 auto pieceJdown = State {
-    Line { _0, _0, _0 },
     Line { _1, _0, _0 },
     Line { _1, _1, _1 },
+    Line { _0, _0, _0 },
 };
 
 auto pieceJleft = State {
-    Line { _1, _1, _0 },
-    Line { _1, _0, _0 },
-    Line { _1, _0, _0 },
+    Line { _0, _1, _1 },
+    Line { _0, _1, _0 },
+    Line { _0, _1, _0 },
 };
 
 auto pieceLup = State {
@@ -115,9 +115,9 @@ auto pieceLdown = State {
 };
 
 auto pieceLleft = State {
-    Line { _1, _0, _0 },
-    Line { _1, _0, _0 },
-    Line { _1, _1, _0 },
+    Line { _0, _1, _0 },
+    Line { _0, _1, _0 },
+    Line { _0, _1, _1 },
 };
 
 auto pieceO = State {
@@ -126,21 +126,21 @@ auto pieceO = State {
 };
 
 auto pieceSup = State {
+    Line { _0, _0, _0 },
     Line { _0, _1, _1 },
     Line { _1, _1, _0 },
-    Line { _0, _0, _0 },
 };
 
 auto pieceSright = State {
-    Line { _1, _0, _0 },
-    Line { _1, _1, _0 },
     Line { _0, _1, _0 },
+    Line { _0, _1, _1 },
+    Line { _0, _0, _1 },
 };
 
 auto pieceZup = State {
+    Line { _0, _0, _0 },
     Line { _1, _1, _0 },
     Line { _0, _1, _1 },
-    Line { _0, _0, _0 },
 };
 
 auto pieceZright = State {
@@ -168,6 +168,7 @@ class Tetris::impl {
     PieceType::t _piece;
     PieceOrientation::t _pieceOrientation;
     Random<unsigned> _random;
+    TetrisStatistics _stats;
     State cut(State& source, unsigned posX, unsigned posY, unsigned size) {
         State res(size);
         for (size_t y = 0; y < size; ++y) {
@@ -191,9 +192,11 @@ class Tetris::impl {
     }
 
     void drawPiece() {
+        _pieceOrientation = PieceOrientation::Up;
         _piece = static_cast<PieceType::t>(_random());
-        State piece = pieces[_piece][PieceOrientation::Up];
-        _bbPiece = { 7, _vert - 4 - (int)piece.size(), 4 };
+        State piece = pieces[_piece][_pieceOrientation];
+        _bbPiece = { 7, _vert - 4 - (int)piece.size(), (int)piece.size() };
+        rstd::reverse(piece); // pieces and the grid have different coord systems (y axis)
         paste(piece, _dynamicGrid, _bbPiece.x, _bbPiece.y);
     }
 
@@ -229,24 +232,32 @@ class Tetris::impl {
         std::for_each(begin(_staticGrid) + 4, end(_staticGrid), [](Line& line) {
             bool hit = rstd::all_of(line, [](CellState cell) {
                     return cell == CellState::Shown;
-        });
+            });
             if (hit) {
                 rstd::fill(line, CellState::Dying);
             }
         });
     }
 
+    void updateStats(int lines) {
+        _stats.lines += lines;
+        int scores[] = { 0, 100, 200, 400, 800 };
+        _stats.score += scores[lines];
+    }
+
     void collect() {
         auto middle = rstd::stable_partition(_staticGrid, [](Line const& line) {
-                return !rstd::all_of(line, [](CellState cell) {
+            return !rstd::all_of(line, [](CellState cell) {
                 return cell == CellState::Dying;
             });
         });
-        std::fill(middle, end(_staticGrid), Line(_hor, CellState::Hidden));
+        updateStats(std::distance(middle, end(_staticGrid)));
+        Line emptyLine(_hor, CellState::Shown);
+        std::fill(begin(emptyLine) + 4, end(emptyLine) - 4, CellState::Hidden);
+        std::fill(middle, end(_staticGrid), emptyLine);
     }
 
     void drop() {
-        collect();
         auto res = _dynamicGrid;
         std::copy(begin(res) + 1, end(res), begin(res));
         rstd::fill(res.at(_vert - 1), CellState::Hidden);
@@ -259,7 +270,6 @@ class Tetris::impl {
             _dynamicGrid = res;
             _bbPiece.y -= 1;
         }
-        kill();
     }
 
     State createState(int width, int height, CellState val) {
@@ -311,11 +321,14 @@ public:
     }
 
     bool step() {
+        collect();
         if (_nothingFalling) {
             nextPiece();
+            kill();
             return true;
         }
         drop();
+        kill();
         return false;
     }
 
@@ -336,12 +349,17 @@ public:
         int offset = leftSpike - rightSpike;
         movePieceHor(copy, offset);
         auto newOrient = nextOrientation(_pieceOrientation);
-        paste(pieces[_piece][newOrient], copy, _bbPiece.x + offset, _bbPiece.y);
+        State nextPiece = pieces[_piece][newOrient];
+        rstd::reverse(nextPiece);
+        paste(nextPiece, copy, _bbPiece.x + offset, _bbPiece.y);
         if (!collision(copy)) {
             _dynamicGrid = copy;
             _pieceOrientation = newOrient;
             _bbPiece.x += offset;
         }
+    }
+    TetrisStatistics getStats() {
+        return _stats;
     }
 };
 
@@ -367,6 +385,10 @@ void Tetris::moveLeft() {
 
 void Tetris::rotate() {
     _impl->rotate();
+}
+
+TetrisStatistics Tetris::getStats() {
+    return _impl->getStats();
 }
 
 Tetris::~Tetris() { }

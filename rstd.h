@@ -23,4 +23,8 @@ namespace rstd {
     void copy(Cont& cont, Iter out) {
         std::copy(std::begin(cont), std::end(cont), out);
     }
+    template<typename Cont>
+    void reverse(Cont& cont) {
+        std::reverse(std::begin(cont), std::end(cont));
+    }
 }

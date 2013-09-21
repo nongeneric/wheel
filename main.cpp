@@ -2,7 +2,9 @@
 #include "Window.h"
 #include "Program.h"
 #include "Tetris.h"
+#include "Text.h"
 
+#include <cstring>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
@@ -12,6 +14,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <boost/chrono.hpp>
 #include <boost/log/trivial.hpp>
+#include <boost/format.hpp>
 
 #include <functional>
 #include <stdexcept>
@@ -24,6 +27,21 @@ namespace chrono = boost::chrono;
 using fseconds = chrono::duration<float>;
 const int g_TetrisHor = 10;
 const int g_TetrisVert = 20;
+
+template <typename FormatType>
+void appendFormat(FormatType& fmt) { }
+
+template <typename FormatType, typename T, typename... Ts>
+void appendFormat(FormatType& fmt, T arg, Ts... args) {
+    appendFormat(fmt % arg, args...);
+}
+
+template <typename StrType, typename... Ts>
+std::string vformat(StrType formatString, Ts... ts) {
+    boost::format fmt(formatString);
+    appendFormat(fmt, ts...);
+    return str(fmt);
+}
 
 struct Vertex {
     glm::vec3 pos;
@@ -200,7 +218,7 @@ Mesh genZXPlato(GLfloat tex, GLfloat size) {
 
 Mesh loadMesh() {
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile("/home/tr/Desktop/cube.ply",
+    const aiScene* scene = importer.ReadFile("cube.ply",
          aiProcess_CalcTangentSpace       |
          aiProcess_Triangulate            |
          aiProcess_JoinIdenticalVertices);
@@ -404,7 +422,7 @@ std::vector<MeshWrapper> genMeshes() {
 
 fseconds copyState(Tetris& tetris, Trunk& trunk) {
     bool dying = false;
-    fseconds duration(1.0f);
+    fseconds duration(0.7f);
     for (int x = 0; x < g_TetrisHor; ++x) {
         for (int y = 0; y < g_TetrisVert; ++y) {
             switch (tetris.getState(x, y)) {
@@ -425,8 +443,121 @@ fseconds copyState(Tetris& tetris, Trunk& trunk) {
     return dying ? duration : fseconds();
 }
 
+Program createBitmapProgram() {
+    Program res;
+    res.addVertexShader(
+        "#version 330\n"
+        "layout(location = 0) in vec4 pos;\n"
+        "layout(location = 1) in vec2 uv;\n"
+        "uniform mat4 transform;\n"
+        "out vec2 f_uv;\n"
+        "void main() {\n"
+        "    gl_Position = transform * pos;\n"
+        "    f_uv = uv;\n"
+        "}\n"
+    );
+    res.addFragmentShader(
+        "#version 330\n"
+        "in vec2 f_uv;\n"
+        "uniform sampler2D sampler;\n"
+        "out vec4 outputColor;\n"
+        "void main() {\n"
+        "   outputColor = texture2D(sampler, f_uv);\n"
+        "}"
+    );
+    res.link();
+    return res;
+}
+
+class Texture {
+    GLuint _tex;
+public:
+    Texture() {
+        glGenTextures(1, &_tex);
+        BindLock<Texture> lock(*this);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    }
+    void setImage(void* buffer, unsigned width, unsigned height) {
+        BindLock<Texture> lock(*this);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+    }
+    void bind() {
+        glBindTexture(GL_TEXTURE_2D, _tex);
+        glActiveTexture(_tex);
+    }
+    void unbind() {
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+};
+
+class HudElem {
+    Texture _tex;
+    VAO _vao;
+    VertexBuffer _vertices;
+    IndexBuffer _indices;
+    Program _program;
+    GLuint _sampler;
+    GLuint _transformUniform;
+    glm::mat4 _transform;
+    VertexBuffer getVertices() {
+        return VertexBuffer {{
+            {glm::vec3 { -1, -1, 0.5 }, glm::vec2 { 0, 0 }},
+            {glm::vec3 { 1, -1, 0.5 }, glm::vec2 { 1, 0 }},
+            {glm::vec3 { -1, 1, 0.5 }, glm::vec2 { 0, 1 }},
+            {glm::vec3 { 1, 1, 0.5 }, glm::vec2 { 1, 1 }}
+        }};
+    }
+    IndexBuffer getIndices() {
+        return IndexBuffer{{
+            0, 1, 3, 0, 2, 3
+        }};
+    }
+    void initVao() {
+        BindLock<VAO> lock(_vao);
+        _vertices.bind();
+        _indices.bind();
+        _tex.bind();
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)12);
+    }
+public:
+    HudElem() : _vertices(getVertices()),
+                _indices(getIndices()),
+                _program(createBitmapProgram())
+    {
+        _sampler = _program.getUniformLocation("sampler");
+        _transformUniform = _program.getUniformLocation("transform");
+        initVao();
+    }
+    void setBitmap(void* buffer, unsigned width, unsigned height, unsigned x, unsigned y, unsigned portX, unsigned portY) {
+        _tex.setImage(buffer, width, height);
+        float normWidth = (float)width / portX;
+        float normHeight = (float)height / portY;
+        auto scale = glm::scale( {}, glm::vec3 {normWidth, normHeight, 1});
+        float normDx = (float)x / portX * 2;
+        float normDy = (float)y / portY * 2;
+        auto translate = glm::translate( {}, glm::vec3 {normDx + normWidth - 1, normDy + normHeight - 1, 0});
+        _transform = translate * scale;
+    }
+    void draw() {
+        BindLock<Program> programLock(_program);
+        _program.setUniform(_sampler, 0);
+        _program.setUniform(_transformUniform, _transform);
+        BindLock<Texture> texLock(_tex);
+        BindLock<VAO> vaoLock(_vao);
+        glDrawElements(GL_TRIANGLES, _indices.size(), GL_UNSIGNED_SHORT, 0);
+    }
+};
+
 int main() {
     Window window("wheel");
+    //Program bitmapProgram = createBitmapProgram();
     Program program;
     program.addVertexShader(vertexShader);
     program.addFragmentShader(fragmentShader);
@@ -442,10 +573,12 @@ int main() {
     Tetris tetris(g_TetrisHor, g_TetrisVert);
 
     glm::vec3 cameraAngles{-5, 0, 0};
-    glm::vec3 cameraPos{0, 2, 100};
+    glm::vec3 cameraPos{0, 15, 100};
 
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0,0,0,1);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glClearColor(0,0,0,0);
     glm::vec2 cursor{ 300, 300 };
     auto past = chrono::high_resolution_clock::now();
     fseconds elapsed;
@@ -457,14 +590,13 @@ int main() {
 
     fseconds wait;
 
-    GLuint tex;
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    GLuint color[] = { 0xFFFFFFFF, 0xFF000000 };
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 2, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, color);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glActiveTexture(tex);
+    Texture tex;
+    std::vector<unsigned> color { 0xFFFFFFFF, 0xFF000000 };
+    tex.setImage(color.data(), 2, 1);
+
+    HudElem hudLines, hudScore;
+    Text text;
+
     bool nextPiece = false;
     bool fastFall = false;
     while (!window.shouldClose()) {
@@ -472,6 +604,26 @@ int main() {
 
         glm::vec2 size = window.getFramebufferSize();
         glViewport(0, 0, size.x, size.y);
+
+        std::string lines = vformat("Lines: %d", tetris.getStats().lines);
+        auto linesText = text.renderText(lines, size.y * 0.05);
+        unsigned linesHeight = FreeImage_GetHeight(linesText.get());
+        hudLines.setBitmap(
+            FreeImage_GetBits(linesText.get()),
+            FreeImage_GetWidth(linesText.get()),
+            linesHeight,
+            0, size.y - linesHeight, size.x, size.y
+        );
+
+        std::string score = vformat("Score: %d", tetris.getStats().score);
+        auto scoreText = text.renderText(score, size.y * 0.05);
+        hudScore.setBitmap(
+            FreeImage_GetBits(scoreText.get()),
+            FreeImage_GetWidth(scoreText.get()),
+            FreeImage_GetHeight(scoreText.get()),
+            0, size.y - FreeImage_GetHeight(scoreText.get()) - linesHeight, size.x, size.y
+        );
+
         auto proj = glm::perspective(30.0f, size.x / size.y, 1.0f, 1000.0f);
         glm::mat4 vpMatrix = proj * getViewMatrix(
             cameraAngles,
@@ -487,18 +639,24 @@ int main() {
         BindLock<Program> programLock(program);
         program.setUniform(U_GSAMPLER, 0);
         program.setUniform(U_AMBIENT, 0.4f);
+        BindLock<Texture> texLock(tex);
         //program.setUniform(U_DIFF_DIRECTION, glm::vec3(0, 0, 1));
         for (MeshWrapper& mesh : meshes) {
             animate(mesh, dt);
             draw(mesh, U_WORLD, U_MVP, vpMatrix, program);
         }
 
+        hudLines.draw();
+        hudScore.draw();
+
         window.swap();
 
         if (wait > fseconds())
             continue;
 
-        if (elapsed > fseconds(0.4f)) {
+        bool normalStep = false;
+        if (elapsed > fseconds(0.5f)) {
+            normalStep = true;
             nextPiece |= tetris.step();
             elapsed = fseconds();
         }
@@ -525,11 +683,11 @@ int main() {
         }
         if (window.getKey(GLFW_KEY_KP_6) == GLFW_PRESS && prevKP6State == GLFW_RELEASE) {
             tetris.rotate();
-        }        
+        }
         if (window.getKey(GLFW_KEY_KP_2) == GLFW_PRESS && prevKP2State == GLFW_RELEASE) {
             fastFall = true;
         }
-        if (fastFall) {
+        if (fastFall && !normalStep) {
             nextPiece |= tetris.step();
         }
         if (nextPiece) {

@@ -6,6 +6,11 @@ enum class CellState {
     Shown, Hidden, Dying
 };
 
+struct TetrisStatistics {
+    unsigned lines = 0;
+    unsigned score = 0;
+};
+
 class Tetris {
     class impl;
     std::unique_ptr<impl> _impl;
@@ -16,5 +21,6 @@ public:
     void moveRight();
     void moveLeft();
     void rotate();
+    TetrisStatistics getStats();
     ~Tetris();
 };

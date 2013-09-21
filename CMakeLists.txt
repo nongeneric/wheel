@@ -12,6 +12,11 @@ link_directories(${Boost_LIBRARY_DIRS})
 add_definitions(-DDEBUG)
 set(CMAKE_CXX_FLAGS "-g -O0 -Wall -Werror -std=c++11 ${CMAKE_CXX_FLAGS}")
 
+include_directories($ENV{LOCAL_DIR}/include/freetype2)
+
+FILE(COPY cube.ply DESTINATION .)
+FILE(COPY LiberationSans-Regular.ttf DESTINATION .)
+
 set(SRC_LIST
 Tetris.h
 Tetris.cpp
@@ -20,11 +25,13 @@ Program.cpp
 Window.h
 Window.cpp
 Random.h
+Text.h
+Text.cpp
 rstd.h
 main.cpp
 )
 
-set(WIN_LIB_DEPS
+set(WINDOWS_LIB_DEPS
     glew32
     opengl32
 )
@@ -47,6 +54,8 @@ add_executable(${PROJECT_NAME} ${SRC_LIST})
 target_link_libraries(${PROJECT_NAME}
     glfw3
     assimp
+    freetype
+    freeimage
     ${LIBS}
     ${Boost_LIBRARIES}
 )
