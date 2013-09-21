@@ -159,6 +159,10 @@ State pieces[][4] = {
     { pieceZup, pieceZright, pieceZup, pieceZright },
 };
 
+int pieceInitialYOffset[] = {
+    0, 0, 0, 0, 1, 1, 1
+};
+
 class Tetris::impl {
     int _hor, _vert;
     bool _nothingFalling = true;
@@ -195,7 +199,8 @@ class Tetris::impl {
         _pieceOrientation = PieceOrientation::Up;
         _piece = static_cast<PieceType::t>(_random());
         State piece = pieces[_piece][_pieceOrientation];
-        _bbPiece = { 7, _vert - 4 - (int)piece.size(), (int)piece.size() };
+        int yoffset = pieceInitialYOffset[_piece];
+        _bbPiece = { 7, _vert - 4 - (int)piece.size() + yoffset, (int)piece.size() };
         rstd::reverse(piece); // pieces and the grid have different coord systems (y axis)
         paste(piece, _dynamicGrid, _bbPiece.x, _bbPiece.y);
     }

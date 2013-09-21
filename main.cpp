@@ -265,19 +265,20 @@ public:
     Trunk(int hor, int vert)
         : _hor(hor), _vert(vert)
     {
+        float xOffset = (1.0 * (hor + 2) + 0.3 * (hor + 1) - 0.5) / -2.0f;
         for (int y = 0; y < vert; ++y) {
             for (int x = 0; x < hor; ++x) {
                 Mesh cube = loadMesh();
-                setPos(cube, glm::vec3 {x * 1.3, y * 1.3 + 0.3, 0});
+                setPos(cube, glm::vec3 { xOffset + 1.3 + x * 1.3, y * 1.3 + 0.3, 0 });
                 _cubes.push_back(cube);
             }
         }
         for (int y = 0; y < vert; ++y) {
             Mesh left = loadMesh();
-            setPos(left, glm::vec3 { -1.3, y * 1.3 + 0.3, 0 });
+            setPos(left, glm::vec3 { xOffset, y * 1.3 + 0.3, 0 });
             _border.push_back(left);
             Mesh right = loadMesh();
-            setPos(right, glm::vec3 { hor * 1.3, y * 1.3 + 0.3, 0 });
+            setPos(right, glm::vec3 { xOffset + (hor + 1) * 1.3, y * 1.3 + 0.3, 0 });
             _border.push_back(right);
         }
     }
@@ -417,7 +418,7 @@ std::vector<MeshWrapper> genMeshes() {
     setPos(meshes[blue_plato], glm::vec3 { -plato_size, 0, 0 });
     setPos(meshes[gray_plato], glm::vec3 { -plato_size, 0, -plato_size });
     Trunk& tr = meshes[trunk].obj<Trunk>();
-    setPos(tr, glm::vec3 { -10, 0, 0 } );
+    setPos(tr, glm::vec3 { 0, 0, 0 } );
     return meshes;
 }
 
@@ -566,6 +567,7 @@ class Keyboard {
     std::map<int, ButtonState> _prevStates;
     std::map<int, std::function<void()>> _downHandlers;
     std::map<int, std::function<void()>> _repeatHandlers;
+    std::map<int, bool> _activeRepeats;
     Window* _window;
     void invokeHandler(int key, std::map<int, std::function<void()>> const& handlers) {
         auto it = handlers.find(key);
@@ -582,11 +584,13 @@ public:
             if (curState == GLFW_PRESS && prevState == GLFW_RELEASE) {
                 invokeHandler(pair.first, _downHandlers);
                 invokeHandler(pair.first, _repeatHandlers);
+                _activeRepeats[pair.first] = true;
                 pair.second.elapsed = fseconds();
             }
             if (curState == GLFW_PRESS &&
                 prevState == GLFW_PRESS &&
-                pair.second.elapsed > pair.second.repeat)
+                pair.second.elapsed > pair.second.repeat &&
+                _activeRepeats[pair.first])
             {
                 pair.second.elapsed = fseconds();
                 invokeHandler(pair.first, _repeatHandlers);
@@ -608,9 +612,14 @@ public:
     void onRepeat(int key, fseconds every, std::function<void()> handler) {
         _prevStates[key] = { GLFW_RELEASE, fseconds(), every };
         _repeatHandlers[key] = handler;
+        _activeRepeats[key] = true;
     }
 
-    void stopRepeats(int);
+    void stopRepeats(int key) {
+        if (_window->getKey(key) == GLFW_PRESS) {
+            _activeRepeats[key] = false;
+        }
+    }
 };
 
 int main() {
@@ -631,7 +640,7 @@ int main() {
     Tetris tetris(g_TetrisHor, g_TetrisVert);
 
     glm::vec3 cameraAngles{-5, 0, 0};
-    glm::vec3 cameraPos{0, 15, 100};
+    glm::vec3 cameraPos{0, 15, 60};
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -652,9 +661,7 @@ int main() {
 
     Keyboard keys(&window);
     bool keysInit = false;
-
     bool nextPiece = false;
-    bool fastFall = false;
     while (!window.shouldClose()) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -719,33 +726,39 @@ int main() {
 
         int leftPressed = 0, rightPressed = 0, upPressed = 0, downPressed = 0;
         if (!keysInit) {
-            keys.onRepeat(GLFW_KEY_KP_1, fseconds(0.1f), [&]() {
+            keys.onRepeat(GLFW_KEY_LEFT, fseconds(0.1f), [&]() {
                 tetris.moveLeft();
             });
-            keys.onRepeat(GLFW_KEY_KP_3, fseconds(0.1f), [&]() {
+            keys.onRepeat(GLFW_KEY_RIGHT, fseconds(0.1f), [&]() {
                 tetris.moveRight();
             });
-            keys.onRepeat(GLFW_KEY_KP_6, fseconds(2.0f), [&]() {
+            keys.onDown(GLFW_KEY_UP, [&]() {
                 tetris.rotate();
             });
-            keys.onRepeat(GLFW_KEY_KP_2, fseconds(0.1f), [&]() {
-                fastFall = true;
+            keys.onRepeat(GLFW_KEY_DOWN, fseconds(0.03f), [&]() {
+                if (!normalStep) {
+                    nextPiece |= tetris.step();
+                }
             });
-            keys.onRepeat(GLFW_KEY_LEFT, fseconds(0.015f), [&]() {
+            keys.onRepeat(GLFW_KEY_KP_4, fseconds(0.015f), [&]() {
                 leftPressed = 1;
             });
-            keys.onRepeat(GLFW_KEY_RIGHT, fseconds(0.015f), [&]() {
+            keys.onRepeat(GLFW_KEY_KP_6, fseconds(0.015f), [&]() {
                 rightPressed = 1;
             });
-            keys.onRepeat(GLFW_KEY_UP, fseconds(0.015f), [&]() {
+            keys.onRepeat(GLFW_KEY_KP_8, fseconds(0.015f), [&]() {
                 upPressed = 1;
             });
-            keys.onRepeat(GLFW_KEY_DOWN, fseconds(0.015f), [&]() {
+            keys.onRepeat(GLFW_KEY_KP_2, fseconds(0.015f), [&]() {
                 downPressed = 1;
             });
             keysInit = true;
         }
         keys.advance(dt);
+        if (nextPiece) {
+            keys.stopRepeats(GLFW_KEY_DOWN);
+            nextPiece = false;
+        }
         cameraPos += glm::vec3 {
             -0.25 * leftPressed + 0.25 * rightPressed,
             0,
@@ -755,13 +768,6 @@ int main() {
         if (mouseLeftPressed) {
             glm::vec2 delta = window.getCursorPos() - cursor;
             cameraAngles += glm::vec3 { -0.5 * delta.y, -0.5 * delta.x, 0 };
-        }
-        if (fastFall && !normalStep) {
-            nextPiece |= tetris.step();
-        }
-        if (nextPiece) {
-            fastFall = false;
-            nextPiece = false;
         }
         cursor = window.getCursorPos();
 
