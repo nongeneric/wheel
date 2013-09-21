@@ -160,7 +160,7 @@ State pieces[][4] = {
 };
 
 int pieceInitialYOffset[] = {
-    0, 0, 0, 0, 1, 1, 1
+    2, 0, 0, 0, 1, 1, 1
 };
 
 class Tetris::impl {
@@ -250,18 +250,6 @@ class Tetris::impl {
         _stats.score += scores[lines];
     }
 
-    void collect() {
-        auto middle = rstd::stable_partition(_staticGrid, [](Line const& line) {
-            return !rstd::all_of(line, [](CellState cell) {
-                return cell == CellState::Dying;
-            });
-        });
-        updateStats(std::distance(middle, end(_staticGrid)));
-        Line emptyLine(_hor, CellState::Shown);
-        std::fill(begin(emptyLine) + 4, end(emptyLine) - 4, CellState::Hidden);
-        std::fill(middle, end(_staticGrid), emptyLine);
-    }
-
     void drop() {
         auto res = _dynamicGrid;
         std::copy(begin(res) + 1, end(res), begin(res));
@@ -319,6 +307,18 @@ public:
         _dynamicGrid = createState(_hor, _vert, CellState::Hidden);
     }
 
+    void collect() {
+        auto middle = rstd::stable_partition(_staticGrid, [](Line const& line) {
+            return !rstd::all_of(line, [](CellState cell) {
+                return cell == CellState::Dying;
+            });
+        });
+        updateStats(std::distance(middle, end(_staticGrid)));
+        Line emptyLine(_hor, CellState::Shown);
+        std::fill(begin(emptyLine) + 4, end(emptyLine) - 4, CellState::Hidden);
+        std::fill(middle, end(_staticGrid), emptyLine);
+    }
+
     CellState getState(int x, int y) {
         if (_dynamicGrid.at(y + 4).at(x + 4) == CellState::Shown)
             return CellState::Shown;
@@ -326,7 +326,6 @@ public:
     }
 
     bool step() {
-        collect();
         if (_nothingFalling) {
             nextPiece();
             kill();
@@ -390,6 +389,10 @@ void Tetris::moveLeft() {
 
 void Tetris::rotate() {
     _impl->rotate();
+}
+
+void Tetris::collect() {
+    _impl->collect();
 }
 
 TetrisStatistics Tetris::getStats() {

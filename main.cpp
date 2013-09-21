@@ -639,7 +639,7 @@ int main() {
 
     Tetris tetris(g_TetrisHor, g_TetrisVert);
 
-    glm::vec3 cameraAngles{-5, 0, 0};
+    glm::vec3 cameraAngles{0, 0, 0};
     glm::vec3 cameraPos{0, 15, 60};
 
     glEnable(GL_DEPTH_TEST);
@@ -658,6 +658,8 @@ int main() {
 
     HudElem hudLines, hudScore;
     Text text;
+
+    fseconds delay = fseconds(1.0f);
 
     Keyboard keys(&window);
     bool keysInit = false;
@@ -695,8 +697,8 @@ int main() {
 
         auto now = chrono::high_resolution_clock::now();
         fseconds dt = chrono::duration_cast<fseconds>(now - past);
-        elapsed += dt;
         wait -= dt;
+        elapsed += dt;
         past = now;
 
         BindLock<Program> programLock(program);
@@ -718,10 +720,14 @@ int main() {
             continue;
 
         bool normalStep = false;
-        if (elapsed > fseconds(0.5f)) {
+        fseconds levelPenalty(0.1f * (tetris.getStats().lines / 10));
+        if (elapsed > delay - levelPenalty) {
             normalStep = true;
+            tetris.collect();
             nextPiece |= tetris.step();
             elapsed = fseconds();
+        } else {
+            tetris.collect();
         }
 
         int leftPressed = 0, rightPressed = 0, upPressed = 0, downPressed = 0;
@@ -737,6 +743,7 @@ int main() {
             });
             keys.onRepeat(GLFW_KEY_DOWN, fseconds(0.03f), [&]() {
                 if (!normalStep) {
+                    tetris.collect();
                     nextPiece |= tetris.step();
                 }
             });

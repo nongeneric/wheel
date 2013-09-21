@@ -21,6 +21,7 @@ public:
     void moveRight();
     void moveLeft();
     void rotate();
+    void collect();
     TetrisStatistics getStats();
     ~Tetris();
 };
