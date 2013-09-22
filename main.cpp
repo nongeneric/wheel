@@ -53,6 +53,45 @@ struct Vertex {
 class Mesh;
 void setScale(Mesh& mesh, glm::vec3 scale);
 
+template<typename Bindable>
+class BindLock {
+    Bindable& _bindable;
+    BindLock(const BindLock&) = delete;
+    BindLock& operator=(const BindLock&) = delete;
+public:
+    BindLock(Bindable& bindable) : _bindable(bindable) {
+        _bindable.bind();
+    }
+    ~BindLock() {
+        _bindable.unbind();
+    }
+};
+
+class Texture {
+    GLuint _tex;
+public:
+    Texture() {
+        glGenTextures(1, &_tex);
+        BindLock<Texture> lock(*this);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    }
+    void setImage(void* buffer, unsigned width, unsigned height) {
+        BindLock<Texture> lock(*this);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+    }
+    void bind() {
+        glBindTexture(GL_TEXTURE_2D, _tex);
+        glActiveTexture(_tex);
+    }
+    void unbind() {
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+};
+
 class ScaleAnimation {
     fseconds _elapsed;
     fseconds _duration;
@@ -76,20 +115,6 @@ public:
         setScale(mesh(), glm::vec3 { factor, factor, factor });
     }
     friend bool isCompleted(ScaleAnimation& a);
-};
-
-template<typename Bindable>
-class BindLock {
-    Bindable& _bindable;
-    BindLock(const BindLock&) = delete;
-    BindLock& operator=(const BindLock&) = delete;
-public:
-    BindLock(Bindable& bindable) : _bindable(bindable) {
-        _bindable.bind();
-    }
-    ~BindLock() {
-        _bindable.unbind();
-    }
 };
 
 template <typename BaseType, int Type>
@@ -253,6 +278,15 @@ Mesh loadMesh() {
     return Mesh(VertexBuffer(vertices), IndexBuffer(indices));
 }
 
+Texture oneColorTex(unsigned color) {
+    Texture tex;
+    char *c = reinterpret_cast<char*>(&color);
+    std::swap(c[0], c[3]);
+    std::swap(c[1], c[2]);
+    tex.setImage(&color, 1, 1);
+    return tex;
+}
+
 const float cubeSpace = 0.2f;
 class Trunk {
     std::vector<Mesh> _cubes;
@@ -260,12 +294,18 @@ class Trunk {
     glm::mat4 _pos;
     int _hor, _vert;
     bool _drawBorder;
+    Texture _texBorder;
+    Texture _texBody;
     Mesh& at(int x, int y) {
         return _cubes.at(_hor * y + x);
     }
 public:
     Trunk(int hor, int vert, bool drawBorder)
-        : _hor(hor), _vert(vert), _drawBorder(drawBorder)
+        : _hor(hor),
+          _vert(vert),
+          _drawBorder(drawBorder),
+          _texBorder(oneColorTex(0xBBBB00FF)),
+          _texBody(oneColorTex(0xFFFFFFFF))
     {
         float xOffset = (1.0 * (hor + 2) + cubeSpace * (hor + 1) - 0.5) / -2.0f;
         for (int y = 0; y < vert; ++y) {
@@ -306,10 +346,16 @@ public:
 };
 
 void draw(Trunk& t, int mv_location, int mvp_location, glm::mat4 vp, Program& program) {
-    for (Mesh& m : t._cubes)
-        ::draw(m, mv_location, mvp_location, vp * t._pos, program);
-    for (Mesh& m : t._border)
-        ::draw(m, mv_location, mvp_location, vp * t._pos, program);
+    {
+        BindLock<Texture> texLock(t._texBody);
+        for (Mesh& m : t._cubes)
+            ::draw(m, mv_location, mvp_location, vp * t._pos, program);
+    }
+    {
+        BindLock<Texture> texLock(t._texBorder);
+        for (Mesh& m : t._border)
+            ::draw(m, mv_location, mvp_location, vp * t._pos, program);
+    }
 }
 
 void setPos(Trunk& trunk, glm::vec3 pos) {
@@ -486,31 +532,6 @@ Program createBitmapProgram() {
     return res;
 }
 
-class Texture {
-    GLuint _tex;
-public:
-    Texture() {
-        glGenTextures(1, &_tex);
-        BindLock<Texture> lock(*this);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    }
-    void setImage(void* buffer, unsigned width, unsigned height) {
-        BindLock<Texture> lock(*this);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-    }
-    void bind() {
-        glBindTexture(GL_TEXTURE_2D, _tex);
-        glActiveTexture(_tex);
-    }
-    void unbind() {
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
-};
-
 class HudElem {
     Texture _tex;
     VAO _vao;
@@ -639,7 +660,6 @@ public:
 
 int main() {
     Window window("wheel");
-    //Program bitmapProgram = createBitmapProgram();
     Program program;
     program.addVertexShader(vertexShader);
     program.addFragmentShader(fragmentShader);
@@ -666,10 +686,6 @@ int main() {
     auto past = chrono::high_resolution_clock::now();
     fseconds elapsed;
     fseconds wait;
-
-    Texture tex;
-    std::vector<unsigned> color { 0xFFFFFFFF, 0xFF000000 };
-    tex.setImage(color.data(), 2, 1);
 
     HudElem hudLines, hudScore;
     Text text;
@@ -719,7 +735,6 @@ int main() {
         BindLock<Program> programLock(program);
         program.setUniform(U_GSAMPLER, 0);
         program.setUniform(U_AMBIENT, 0.4f);
-        BindLock<Texture> texLock(tex);
         //program.setUniform(U_DIFF_DIRECTION, glm::vec3(0, 0, 1));
         for (MeshWrapper& mesh : meshes) {
             animate(mesh, dt);
@@ -792,7 +807,6 @@ int main() {
             cameraAngles += glm::vec3 { -0.5 * delta.y, -0.5 * delta.x, 0 };
         }
         cursor = window.getCursorPos();
-
 
         wait = copyState(tetris, &Tetris::getState, g_TetrisHor, g_TetrisVert, meshes[trunk].obj<Trunk>());
         copyState(tetris, &Tetris::getNextPieceState, 4, 4, meshes[nextPieceTrunk].obj<Trunk>());
