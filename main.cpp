@@ -253,32 +253,40 @@ Mesh loadMesh() {
     return Mesh(VertexBuffer(vertices), IndexBuffer(indices));
 }
 
+const float cubeSpace = 0.2f;
 class Trunk {
     std::vector<Mesh> _cubes;
     std::vector<Mesh> _border;
     glm::mat4 _pos;
     int _hor, _vert;
+    bool _drawBorder;
     Mesh& at(int x, int y) {
         return _cubes.at(_hor * y + x);
     }
 public:
-    Trunk(int hor, int vert)
-        : _hor(hor), _vert(vert)
+    Trunk(int hor, int vert, bool drawBorder)
+        : _hor(hor), _vert(vert), _drawBorder(drawBorder)
     {
-        float xOffset = (1.0 * (hor + 2) + 0.3 * (hor + 1) - 0.5) / -2.0f;
+        float xOffset = (1.0 * (hor + 2) + cubeSpace * (hor + 1) - 0.5) / -2.0f;
         for (int y = 0; y < vert; ++y) {
             for (int x = 0; x < hor; ++x) {
                 Mesh cube = loadMesh();
-                setPos(cube, glm::vec3 { xOffset + 1.3 + x * 1.3, y * 1.3 + 0.3, 0 });
+                float xPos = xOffset + (cubeSpace + 1) * (x + 1);
+                float yPos = y * (1 + cubeSpace) + cubeSpace;
+                setPos(cube, glm::vec3 { xPos, yPos, 0 });
                 _cubes.push_back(cube);
             }
         }
+        if (!_drawBorder)
+            return;
         for (int y = 0; y < vert; ++y) {
             Mesh left = loadMesh();
-            setPos(left, glm::vec3 { xOffset, y * 1.3 + 0.3, 0 });
+            setPos(left, glm::vec3 { xOffset, y * (1 + cubeSpace) + cubeSpace, 0 });
             _border.push_back(left);
             Mesh right = loadMesh();
-            setPos(right, glm::vec3 { xOffset + (hor + 1) * 1.3, y * 1.3 + 0.3, 0 });
+            float xPos = xOffset + (hor + 1) * (1 + cubeSpace);
+            float yPos = y * (1 + cubeSpace) + cubeSpace;
+            setPos(right, glm::vec3 { xPos, yPos, 0 });
             _border.push_back(right);
         }
     }
@@ -402,7 +410,7 @@ std::string fragmentShader =
         "}"
         ;
 
-enum { red_plato, green_plato, blue_plato, gray_plato, trunk };
+enum { red_plato, green_plato, blue_plato, gray_plato, trunk, nextPieceTrunk };
 std::vector<MeshWrapper> genMeshes() {
     GLfloat plato_size = 20.0f;
     std::vector<MeshWrapper> meshes {
@@ -410,24 +418,31 @@ std::vector<MeshWrapper> genMeshes() {
         genZXPlato(1.0f, plato_size),
         genZXPlato(0.0f, plato_size),
         genZXPlato(1.0f, plato_size),
-        Trunk(g_TetrisHor, g_TetrisVert)
+        Trunk(g_TetrisHor, g_TetrisVert, true),
+        Trunk(4, 4, false)
     };
 
     setPos(meshes[red_plato], glm::vec3 { 0, 0, 0 } );
     setPos(meshes[green_plato], glm::vec3 { 0, 0, -plato_size });
     setPos(meshes[blue_plato], glm::vec3 { -plato_size, 0, 0 });
     setPos(meshes[gray_plato], glm::vec3 { -plato_size, 0, -plato_size });
-    Trunk& tr = meshes[trunk].obj<Trunk>();
-    setPos(tr, glm::vec3 { 0, 0, 0 } );
+    Trunk& tr = meshes[nextPieceTrunk].obj<Trunk>();
+    setPos(tr, glm::vec3 { 12, 15, 0 } );
     return meshes;
 }
 
-fseconds copyState(Tetris& tetris, Trunk& trunk) {
+fseconds copyState(
+        Tetris& tetris,
+        std::function<CellState(Tetris&, int x, int y)> getter,
+        int xMax,
+        int yMax,
+        Trunk& trunk)
+{
     bool dying = false;
     fseconds duration(0.7f);
-    for (int x = 0; x < g_TetrisHor; ++x) {
-        for (int y = 0; y < g_TetrisVert; ++y) {
-            switch (tetris.getState(x, y)) {
+    for (int x = 0; x < xMax; ++x) {
+        for (int y = 0; y < yMax; ++y) {
+            switch (getter(tetris, x, y)) {
             case CellState::Shown:
                 trunk.show(x, y);
                 break;
@@ -635,7 +650,7 @@ int main() {
     const GLuint U_AMBIENT = program.getUniformLocation("ambient");
     //const GLuint U_DIFF_DIRECTION = program.getUniformLocation("diffDirection");
 
-    auto meshes = genMeshes();
+    std::vector<MeshWrapper> meshes = genMeshes();
 
     Tetris tetris(g_TetrisHor, g_TetrisVert);
 
@@ -778,7 +793,9 @@ int main() {
         }
         cursor = window.getCursorPos();
 
-        wait = copyState(tetris, meshes[trunk].obj<Trunk>());
+
+        wait = copyState(tetris, &Tetris::getState, g_TetrisHor, g_TetrisVert, meshes[trunk].obj<Trunk>());
+        copyState(tetris, &Tetris::getNextPieceState, 4, 4, meshes[nextPieceTrunk].obj<Trunk>());
     }
     return 0;
 }

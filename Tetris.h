@@ -17,6 +17,7 @@ class Tetris {
 public:
     Tetris(int hor, int vert);
     CellState getState(int x, int y);
+    CellState getNextPieceState(int x, int y); // 4x4
     bool step();
     void moveRight();
     void moveLeft();

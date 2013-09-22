@@ -170,6 +170,7 @@ class Tetris::impl {
     State _dynamicGrid;
     BBox _bbPiece;
     PieceType::t _piece;
+    PieceType::t _nextPiece;
     PieceOrientation::t _pieceOrientation;
     Random<unsigned> _random;
     TetrisStatistics _stats;
@@ -197,10 +198,12 @@ class Tetris::impl {
 
     void drawPiece() {
         _pieceOrientation = PieceOrientation::Up;
-        _piece = static_cast<PieceType::t>(_random());
+        _piece = _nextPiece;
+        _nextPiece = static_cast<PieceType::t>(_random());
         State piece = pieces[_piece][_pieceOrientation];
         int yoffset = pieceInitialYOffset[_piece];
-        _bbPiece = { 7, _vert - 4 - (int)piece.size() + yoffset, (int)piece.size() };
+        int xoffset = 4 + (_hor - 8) / 2 - piece.size() / 2;
+        _bbPiece = { xoffset, _vert - 4 - (int)piece.size() + yoffset, (int)piece.size() };
         rstd::reverse(piece); // pieces and the grid have different coord systems (y axis)
         paste(piece, _dynamicGrid, _bbPiece.x, _bbPiece.y);
     }
@@ -301,6 +304,7 @@ public:
           _vert(vert + 8),
           _random(0, PieceType::count - 1)
     {
+        _nextPiece = static_cast<PieceType::t>(_random());
         State inner = createState(hor, vert + 4, CellState::Hidden);
         _staticGrid = createState(_hor, _vert, CellState::Shown);
         paste(inner, _staticGrid, 4, 4);
@@ -365,6 +369,12 @@ public:
     TetrisStatistics getStats() {
         return _stats;
     }
+    CellState getNextPieceState(int x, int y) {
+        State state = createState(4, 4, CellState::Hidden);
+        State piece = pieces[_nextPiece][PieceOrientation::Up];
+        paste(piece, state, 0, 0);
+        return state.at(y).at(x);
+    }
 };
 
 Tetris::Tetris(int hor, int vert)
@@ -373,6 +383,10 @@ Tetris::Tetris(int hor, int vert)
 
 CellState Tetris::getState(int x, int y) {
     return _impl->getState(x, y);
+}
+
+CellState Tetris::getNextPieceState(int x, int y) {
+    return _impl->getNextPieceState(x, y);
 }
 
 bool Tetris::step() {
