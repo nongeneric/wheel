@@ -737,6 +737,8 @@ int main() {
 
     Tetris tetris(g_TetrisHor, g_TetrisVert);
 
+    glm::vec3 defaultCameraAngles{0, 0, 0};
+    glm::vec3 defaultCameraPos{0, 15, 60};
     glm::vec3 cameraAngles{0, 0, 0};
     glm::vec3 cameraPos{0, 15, 60};
 
@@ -752,8 +754,9 @@ int main() {
     Text text;
     HudElem hudGameOver;
 
-    HudList hudList(5, &text);
+    HudList hudList(6, &text);
     std::string gameOverText = "Game Over!";
+    std::string pauseText = "PAUSED";
     fseconds delay = fseconds(1.0f);
     fseconds fpsElapsed = fseconds();
     int framesCount = 0;
@@ -762,6 +765,7 @@ int main() {
     Keyboard keys(&window);
     bool keysInit = false;
     bool nextPiece = false;
+    bool paused = false;
     while (!window.shouldClose()) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -780,6 +784,7 @@ int main() {
         hudList.setLine(1, vformat("Score: %d", tetris.getStats().score));
         hudList.setLine(2, vformat("Level: %d", tetris.getStats().level));
         hudList.setLine(3, vformat("FPS: %d", prevFPS));
+        hudList.setLine(5, paused ? pauseText : "");
 
         auto proj = glm::perspective(30.0f, size.x / size.y, 1.0f, 1000.0f);
         glm::mat4 vpMatrix = proj * getViewMatrix(
@@ -789,9 +794,11 @@ int main() {
 
         auto now = chrono::high_resolution_clock::now();
         fseconds dt = chrono::duration_cast<fseconds>(now - past);
+        fpsElapsed += dt;
+        if (paused)
+            dt = fseconds();
         wait -= dt;
         elapsed += dt;
-        fpsElapsed += dt;
         past = now;
 
         BindLock<Program> programLock(program);
@@ -853,10 +860,17 @@ int main() {
             keys.onRepeat(GLFW_KEY_KP_2, fseconds(0.015f), [&]() {
                 downPressed = 1;
             });
+            keys.onDown(GLFW_KEY_KP_5, [&]() {
+                cameraAngles = defaultCameraAngles;
+                cameraPos = defaultCameraPos;
+            });
             keys.onDown(GLFW_KEY_ESCAPE, [&]() {
                 wait = fseconds();
                 hudList.setLine(4, "");
                 tetris.reset();
+            });
+            keys.onDown(GLFW_KEY_PAUSE, [&]() {
+                paused = !paused;
             });
             keysInit = true;
         }
