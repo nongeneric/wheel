@@ -668,6 +668,36 @@ void drawText(std::string str, Text& text, HudElem& elem, unsigned x, unsigned y
     );
 }
 
+class HudList {
+    struct ListItem {
+        std::string text;
+        HudElem elem;
+    };
+    std::vector<ListItem> _lines;
+    Text* _text;
+public:
+    HudList(int lines, Text* text) : _lines(lines), _text(text) { }
+    void setLine(int i, std::string text) {
+        _lines.at(i).text = text;
+    }
+    void draw(glm::vec2 frame) {
+        int i = 1;
+        for (ListItem& item : _lines) {
+            auto bitmap = _text->renderText(item.text, frame.y * 0.05);
+            unsigned height = FreeImage_GetHeight(bitmap.get());
+            item.elem.setBitmap(
+                FreeImage_GetBits(bitmap.get()),
+                FreeImage_GetWidth(bitmap.get()),
+                height,
+                0,
+                frame.y - (height + 0.01 * frame.y) * i, frame.x, frame.y
+            );
+            i++;
+            item.elem.draw();
+        }
+    }
+};
+
 int main() {
     Window window("wheel");
     Program program;
@@ -697,7 +727,9 @@ int main() {
     fseconds wait;
 
     Text text;
-    HudElem hudLines, hudScore, hudLevel, hudGameOver;
+    HudElem hudGameOver;
+
+    HudList hudList(4, &text);
     std::string gameOverText = "Game Over!";
     bool gameOverInit = false;
     fseconds delay = fseconds(1.0f);
@@ -726,25 +758,6 @@ int main() {
             gameOverInit = true;
         }
 
-        std::string lines = vformat("Lines: %d", tetris.getStats().lines);
-        auto linesText = text.renderText(lines, size.y * 0.05);
-        unsigned linesHeight = FreeImage_GetHeight(linesText.get());
-        hudLines.setBitmap(
-            FreeImage_GetBits(linesText.get()),
-            FreeImage_GetWidth(linesText.get()),
-            linesHeight,
-            0, size.y - linesHeight, size.x, size.y
-        );
-
-        std::string score = vformat("Score: %d", tetris.getStats().score);
-        auto scoreText = text.renderText(score, size.y * 0.05);
-        hudScore.setBitmap(
-            FreeImage_GetBits(scoreText.get()),
-            FreeImage_GetWidth(scoreText.get()),
-            FreeImage_GetHeight(scoreText.get()),
-            0, size.y - FreeImage_GetHeight(scoreText.get()) - linesHeight, size.x, size.y
-        );
-
         framesCount++;
         if (fpsElapsed > fseconds(1.0f)) {
             prevFPS = framesCount;
@@ -753,14 +766,10 @@ int main() {
             fpsElapsed = fseconds();
         }
 
-        std::string level = vformat("Level: %d; fps: %s", tetris.getStats().level, prevFPS);
-        auto levelText = text.renderText(level, size.y * 0.05);
-        hudLevel.setBitmap(
-            FreeImage_GetBits(levelText.get()),
-            FreeImage_GetWidth(levelText.get()),
-            FreeImage_GetHeight(levelText.get()),
-            0, size.y - FreeImage_GetHeight(scoreText.get()) - FreeImage_GetHeight(linesText.get()) - linesHeight, size.x, size.y
-        );
+        hudList.setLine(0, vformat("Lines: %d", tetris.getStats().lines));
+        hudList.setLine(1, vformat("Score: %d", tetris.getStats().score));
+        hudList.setLine(2, vformat("Level: %d", tetris.getStats().level));
+        hudList.setLine(3, vformat("FPS: %d", prevFPS));
 
         auto proj = glm::perspective(30.0f, size.x / size.y, 1.0f, 1000.0f);
         glm::mat4 vpMatrix = proj * getViewMatrix(
@@ -784,9 +793,7 @@ int main() {
             draw(mesh, U_WORLD, U_MVP, vpMatrix, program);
         }
 
-        hudLines.draw();
-        hudScore.draw();
-        hudLevel.draw();
+        hudList.draw(size);
         if (tetris.getStats().gameOver) {
             hudGameOver.draw();
         }
