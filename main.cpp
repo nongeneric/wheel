@@ -231,20 +231,6 @@ glm::mat4 getViewMatrix(glm::vec3 const& angles, glm::vec3 const& pos) {
     return translation * rotation;
 }
 
-Mesh genZXPlato(GLfloat tex, GLfloat size) {
-    VertexBuffer vertices{{
-        {glm::vec3 {0.0f, 0.0f, 0.0f}, glm::vec2 {tex, tex}},
-        {glm::vec3 {size, 0.0f, 0.0f}, glm::vec2 {0, 0}},
-        {glm::vec3 {size, 0.0f, size}, glm::vec2 {tex, tex}},
-        {glm::vec3 {0.0f, 0.0f, size}, glm::vec2 {0, 0}},
-    }};
-    enum { b1, b2, b3, b4 };
-    IndexBuffer indices{{
-        b1, b2, b3, b3, b1, b4
-    }};
-    return Mesh(vertices, indices);
-}
-
 Mesh loadMesh() {
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile("cube.ply",
@@ -474,22 +460,12 @@ std::string fragmentShader =
         "}"
         ;
 
-enum { red_plato, green_plato, blue_plato, gray_plato, trunk, nextPieceTrunk };
+enum { trunk, nextPieceTrunk };
 std::vector<MeshWrapper> genMeshes() {
-    GLfloat plato_size = 20.0f;
     std::vector<MeshWrapper> meshes {
-        genZXPlato(0.0f, plato_size),
-        genZXPlato(1.0f, plato_size),
-        genZXPlato(0.0f, plato_size),
-        genZXPlato(1.0f, plato_size),
         Trunk(g_TetrisHor, g_TetrisVert, true),
         Trunk(4, 4, false)
     };
-
-    setPos(meshes[red_plato], glm::vec3 { 0, 0, 0 } );
-    setPos(meshes[green_plato], glm::vec3 { 0, 0, -plato_size });
-    setPos(meshes[blue_plato], glm::vec3 { -plato_size, 0, 0 });
-    setPos(meshes[gray_plato], glm::vec3 { -plato_size, 0, -plato_size });
     Trunk& tr = meshes[nextPieceTrunk].obj<Trunk>();
     setPos(tr, glm::vec3 { 12, 15, 0 } );
     return meshes;
@@ -721,7 +697,8 @@ int main() {
     fseconds elapsed;
     fseconds wait;
 
-    HudElem hudLines, hudScore, hudLevel;
+    HudElem hudLines, hudScore, hudLevel, hudGameOver;
+    std::string gameOverText = "";
     Text text;
 
     fseconds delay = fseconds(1.0f);
@@ -763,6 +740,15 @@ int main() {
             0, size.y - FreeImage_GetHeight(scoreText.get()) - FreeImage_GetHeight(linesText.get()) - linesHeight, size.x, size.y
         );
 
+        auto bmGameOver = text.renderText(gameOverText, size.y * 0.08);
+        hudGameOver.setBitmap(
+            FreeImage_GetBits(bmGameOver.get()),
+            FreeImage_GetWidth(bmGameOver.get()),
+            FreeImage_GetHeight(bmGameOver.get()),
+            (size.x - FreeImage_GetWidth(bmGameOver.get()) ) / 2,
+            size.y - FreeImage_GetHeight(bmGameOver.get()) - size.y * 0.05, size.x, size.y
+        );
+
         auto proj = glm::perspective(30.0f, size.x / size.y, 1.0f, 1000.0f);
         glm::mat4 vpMatrix = proj * getViewMatrix(
             cameraAngles,
@@ -787,6 +773,7 @@ int main() {
         hudLines.draw();
         hudScore.draw();
         hudLevel.draw();
+        hudGameOver.draw();
 
         window.swap();
 
@@ -795,7 +782,7 @@ int main() {
 
         bool normalStep = false;
         fseconds levelPenalty(0.1f * tetris.getStats().level);
-        if (elapsed > delay - levelPenalty) {
+        if (elapsed > delay - levelPenalty && !tetris.getStats().gameOver) {
             normalStep = true;
             tetris.collect();
             nextPiece |= tetris.step();
@@ -833,9 +820,20 @@ int main() {
             keys.onRepeat(GLFW_KEY_KP_2, fseconds(0.015f), [&]() {
                 downPressed = 1;
             });
+            keys.onDown(GLFW_KEY_ESCAPE, [&]() {
+                wait = fseconds();
+                gameOverText = "";
+                tetris.reset();
+            });
             keysInit = true;
         }
         keys.advance(dt);
+
+        if (tetris.getStats().gameOver) {
+            gameOverText = "Game Over!";
+            continue;
+        }
+
         if (nextPiece) {
             keys.stopRepeats(GLFW_KEY_DOWN);
             nextPiece = false;

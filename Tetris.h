@@ -24,6 +24,7 @@ struct TetrisStatistics {
     unsigned lines = 0;
     unsigned score = 0;
     unsigned level = 0;
+    bool gameOver = false;
 };
 
 class Tetris {
@@ -38,6 +39,7 @@ public:
     void moveLeft();
     void rotate();
     void collect();
+    void reset();
     TetrisStatistics getStats();
     ~Tetris();
 };

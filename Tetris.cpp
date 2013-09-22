@@ -152,7 +152,7 @@ int pieceInitialYOffset[] = {
 
 class Tetris::impl {
     int _hor, _vert;
-    bool _nothingFalling = true;
+    bool _nothingFalling;
     State _staticGrid;
     State _dynamicGrid;
     BBox _bbPiece;
@@ -204,6 +204,9 @@ class Tetris::impl {
         int xoffset = 4 + (_hor - 8) / 2 - piece.size() / 2;
         _bbPiece = { xoffset, _vert - 4 - (int)piece.size() + yoffset, (int)piece.size() };
         paste(piece, _dynamicGrid, _bbPiece.x, _bbPiece.y);
+        if (collision(_dynamicGrid)) {
+            _stats.gameOver = true;
+        }
     }
 
     void nextPiece() {
@@ -303,12 +306,7 @@ public:
           _vert(vert + 8),
           _random(0, PieceType::count - 1)
     {
-        _nextPiece = static_cast<PieceType::t>(_random());
-        _piece = _nextPiece;
-        State inner = createState(hor, vert + 4, CellState::Hidden);
-        _staticGrid = createState(_hor, _vert, CellState::Shown);
-        paste(inner, _staticGrid, 4, 4);
-        _dynamicGrid = createState(_hor, _vert, CellState::Hidden);
+        reset();
     }
 
     void collect() {
@@ -377,6 +375,16 @@ public:
         assert((unsigned)state.at(y).at(x).piece < PieceType::count);
         return state.at(y).at(x);
     }
+    void reset() {
+        _nothingFalling = true;
+        _nextPiece = static_cast<PieceType::t>(_random());
+        _piece = _nextPiece;
+        State inner = createState(_hor - 8, _vert - 4, CellState::Hidden);
+        _staticGrid = createState(_hor, _vert, CellState::Shown);
+        paste(inner, _staticGrid, 4, 4);
+        _dynamicGrid = createState(_hor, _vert, CellState::Hidden);
+        _stats = TetrisStatistics();
+    }
 };
 
 Tetris::Tetris(int hor, int vert)
@@ -409,6 +417,10 @@ void Tetris::rotate() {
 
 void Tetris::collect() {
     _impl->collect();
+}
+
+void Tetris::reset() {
+    _impl->reset();
 }
 
 TetrisStatistics Tetris::getStats() {
