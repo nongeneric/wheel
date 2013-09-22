@@ -689,7 +689,6 @@ int main() {
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
-    glfwSwapInterval(1); // vsync on
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glClearColor(0,0,0,0);
     glm::vec2 cursor{ 300, 300 };
@@ -697,11 +696,14 @@ int main() {
     fseconds elapsed;
     fseconds wait;
 
-    HudElem hudLines, hudScore, hudLevel, hudGameOver;
-    std::string gameOverText = "";
     Text text;
-
+    HudElem hudLines, hudScore, hudLevel, hudGameOver;
+    std::string gameOverText = "Game Over!";
+    bool gameOverInit = false;
     fseconds delay = fseconds(1.0f);
+    fseconds fpsElapsed = fseconds();
+    int framesCount = 0;
+    int prevFPS = 0;
 
     Keyboard keys(&window);
     bool keysInit = false;
@@ -711,6 +713,18 @@ int main() {
 
         glm::vec2 size = window.getFramebufferSize();
         glViewport(0, 0, size.x, size.y);
+
+        if (!gameOverInit) {
+            auto bmGameOver = text.renderText(gameOverText, size.y * 0.08);
+            hudGameOver.setBitmap(
+                FreeImage_GetBits(bmGameOver.get()),
+                FreeImage_GetWidth(bmGameOver.get()),
+                FreeImage_GetHeight(bmGameOver.get()),
+                (size.x - FreeImage_GetWidth(bmGameOver.get()) ) / 2,
+                size.y - FreeImage_GetHeight(bmGameOver.get()) - size.y * 0.05, size.x, size.y
+            );
+            gameOverInit = true;
+        }
 
         std::string lines = vformat("Lines: %d", tetris.getStats().lines);
         auto linesText = text.renderText(lines, size.y * 0.05);
@@ -731,22 +745,21 @@ int main() {
             0, size.y - FreeImage_GetHeight(scoreText.get()) - linesHeight, size.x, size.y
         );
 
-        std::string level = vformat("Level: %d", tetris.getStats().level);
+        framesCount++;
+        if (fpsElapsed > fseconds(1.0f)) {
+            prevFPS = framesCount;
+            (void)prevFPS;
+            framesCount = 0;
+            fpsElapsed = fseconds();
+        }
+
+        std::string level = vformat("Level: %d; fps: %s", tetris.getStats().level, prevFPS);
         auto levelText = text.renderText(level, size.y * 0.05);
         hudLevel.setBitmap(
             FreeImage_GetBits(levelText.get()),
             FreeImage_GetWidth(levelText.get()),
             FreeImage_GetHeight(levelText.get()),
             0, size.y - FreeImage_GetHeight(scoreText.get()) - FreeImage_GetHeight(linesText.get()) - linesHeight, size.x, size.y
-        );
-
-        auto bmGameOver = text.renderText(gameOverText, size.y * 0.08);
-        hudGameOver.setBitmap(
-            FreeImage_GetBits(bmGameOver.get()),
-            FreeImage_GetWidth(bmGameOver.get()),
-            FreeImage_GetHeight(bmGameOver.get()),
-            (size.x - FreeImage_GetWidth(bmGameOver.get()) ) / 2,
-            size.y - FreeImage_GetHeight(bmGameOver.get()) - size.y * 0.05, size.x, size.y
         );
 
         auto proj = glm::perspective(30.0f, size.x / size.y, 1.0f, 1000.0f);
@@ -759,6 +772,7 @@ int main() {
         fseconds dt = chrono::duration_cast<fseconds>(now - past);
         wait -= dt;
         elapsed += dt;
+        fpsElapsed += dt;
         past = now;
 
         BindLock<Program> programLock(program);
@@ -773,7 +787,9 @@ int main() {
         hudLines.draw();
         hudScore.draw();
         hudLevel.draw();
-        hudGameOver.draw();
+        if (tetris.getStats().gameOver) {
+            hudGameOver.draw();
+        }
 
         window.swap();
 
@@ -803,7 +819,7 @@ int main() {
                 tetris.rotate();
             });
             keys.onRepeat(GLFW_KEY_DOWN, fseconds(0.03f), [&]() {
-                if (!normalStep) {
+                if (!normalStep && !tetris.getStats().gameOver) {
                     tetris.collect();
                     nextPiece |= tetris.step();
                 }
@@ -828,11 +844,6 @@ int main() {
             keysInit = true;
         }
         keys.advance(dt);
-
-        if (tetris.getStats().gameOver) {
-            gameOverText = "Game Over!";
-            continue;
-        }
 
         if (nextPiece) {
             keys.stopRepeats(GLFW_KEY_DOWN);

@@ -35,6 +35,7 @@ std::shared_ptr<FIBITMAP> make_bitmap_ptr(FIBITMAP* raw) {
 class Text::impl {
     FT_Face face;
     std::map<const CacheKey, CacheEntry> _cache;
+    BitmapPtr _fbitmap;
     CacheEntry getCachedGlyph(unsigned pxHeight, FT_UInt glyphIndex, FT_Face face) {
         CacheKey key { pxHeight, glyphIndex, face };
         auto it = _cache.find(key);
@@ -64,6 +65,11 @@ class Text::impl {
         return entry;
     }
 public:
+    impl() {
+        _fbitmap = make_bitmap_ptr( FreeImage_Allocate(1000, 300, 8) );
+        assert(_fbitmap.get());
+    }
+
     BitmapPtr renderText(std::string str, unsigned pxHeight) {
         if (!freeTypeInit) {
             auto error = FT_Init_FreeType(&library);
@@ -85,9 +91,8 @@ public:
             );
         assert(!error);
 
-        int bmWidth = 2000, bmHeight = 2 * pxHeight;
-        BitmapPtr fbitmap = make_bitmap_ptr( FreeImage_Allocate(bmWidth, bmHeight, 8) );
-        assert(fbitmap.get());
+        unsigned color = 0;
+        FreeImage_FillBackground(_fbitmap.get(), &color);
 
         int pen_x = 0;
         int prev = 0;
@@ -102,7 +107,7 @@ public:
 
             CacheEntry entry = getCachedGlyph(pxHeight, glyph_index, face);
             FreeImage_Paste(
-                fbitmap.get(),
+                _fbitmap.get(),
                 entry.bitmap.get(),
                 pen_x + entry.bitmapLeft,
                 pxHeight - entry.bitmapTop,
@@ -112,10 +117,10 @@ public:
             pen_x += entry.advanceX / 64;
             prev = glyph_index;
         }
-        BitmapPtr fcropped = make_bitmap_ptr( FreeImage_Copy(fbitmap.get(), 0, pxHeight * 1.1f, pen_x, 0) );
+        BitmapPtr fcropped = make_bitmap_ptr( FreeImage_Copy(_fbitmap.get(), 0, pxHeight * 1.1f, pen_x, 0) );
         BitmapPtr fbitmap32 = make_bitmap_ptr( FreeImage_ConvertTo32Bits(fcropped.get()) );
-        for (int y = 0; y < bmHeight; ++y) {
-            for (int x = 0; x < bmWidth; ++x) {
+        for (size_t y = 0; y < FreeImage_GetHeight(fbitmap32.get()); ++y) {
+            for (size_t x = 0; x < FreeImage_GetWidth(fbitmap32.get()); ++x) {
                 RGBQUAD color;
                 FreeImage_GetPixelColor(fbitmap32.get(), x, y, &color);
                 color.rgbReserved = color.rgbBlue;
