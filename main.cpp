@@ -698,6 +698,12 @@ public:
     }
 };
 
+float speedCurve(int level) {
+    if (level <= 15)
+        return 0.05333f * level;
+    return 0.6125f + 0.0125f * level;
+}
+
 int main() {
     Window window("wheel");
     Program program;
@@ -731,7 +737,6 @@ int main() {
 
     HudList hudList(4, &text);
     std::string gameOverText = "Game Over!";
-    bool gameOverInit = false;
     fseconds delay = fseconds(1.0f);
     fseconds fpsElapsed = fseconds();
     int framesCount = 0;
@@ -746,17 +751,14 @@ int main() {
         glm::vec2 size = window.getFramebufferSize();
         glViewport(0, 0, size.x, size.y);
 
-        if (!gameOverInit) {
-            auto bmGameOver = text.renderText(gameOverText, size.y * 0.08);
-            hudGameOver.setBitmap(
-                FreeImage_GetBits(bmGameOver.get()),
-                FreeImage_GetWidth(bmGameOver.get()),
-                FreeImage_GetHeight(bmGameOver.get()),
-                (size.x - FreeImage_GetWidth(bmGameOver.get()) ) / 2,
-                size.y - FreeImage_GetHeight(bmGameOver.get()) - size.y * 0.05, size.x, size.y
-            );
-            gameOverInit = true;
-        }
+        auto bmGameOver = text.renderText(gameOverText, size.y * 0.08);
+        hudGameOver.setBitmap(
+            FreeImage_GetBits(bmGameOver.get()),
+            FreeImage_GetWidth(bmGameOver.get()),
+            FreeImage_GetHeight(bmGameOver.get()),
+            (size.x - FreeImage_GetWidth(bmGameOver.get()) ) / 2,
+            size.y - FreeImage_GetHeight(bmGameOver.get()) - size.y * 0.05, size.x, size.y
+        );
 
         framesCount++;
         if (fpsElapsed > fseconds(1.0f)) {
@@ -804,7 +806,7 @@ int main() {
             continue;
 
         bool normalStep = false;
-        fseconds levelPenalty(0.1f * tetris.getStats().level);
+        fseconds levelPenalty(speedCurve(tetris.getStats().level));
         if (elapsed > delay - levelPenalty && !tetris.getStats().gameOver) {
             normalStep = true;
             tetris.collect();
