@@ -9,30 +9,17 @@ struct BBox {
     int x, y, size;
 };
 
-namespace PieceType {
-    enum t {
-        I, J, L, O, S, T, Z, count
-    };
-}
-
-using Line = std::vector<CellState>;
+using Line = std::vector<CellInfo>;
 using State = std::vector<Line>;
 
 namespace PieceOrientation {
     enum t {
-        Up, Right, Down, Left
+        Up, Right, Down, Left, count
     };
 }
 
-std::vector<PieceOrientation::t> OrientationCircle {
-    PieceOrientation::Up,
-    PieceOrientation::Right,
-    PieceOrientation::Down,
-    PieceOrientation::Left
-};
-
-auto _1 = CellState::Shown;
-auto _0 = CellState::Hidden;
+auto _1 = CellInfo { CellState::Shown };
+auto _0 = CellInfo { CellState::Hidden };
 
 auto barUp = State {
     Line { _0, _0, _0, _0 },
@@ -185,7 +172,7 @@ class Tetris::impl {
                       std::back_inserter(res.at(y)));
             std::fill(sourceLineBegin,
                       sourceLineEnd,
-                      CellState::Hidden);
+                      CellInfo { CellState::Hidden });
         }
         return res;
     }
@@ -196,15 +183,26 @@ class Tetris::impl {
         }
     }
 
+    State patchPiece(State const& piece, PieceType::t pieceType) {
+        State copy = piece;
+        rstd::reverse(copy); // pieces and the grid have different coord systems (y axis)
+        for (Line& line : copy) {
+            for (CellInfo& cell : line) {
+                assert((unsigned)pieceType < PieceType::count);
+                cell.piece = pieceType;
+            }
+        }
+        return copy;
+    }
+
     void drawPiece() {
         _pieceOrientation = PieceOrientation::Up;
         _piece = _nextPiece;
         _nextPiece = static_cast<PieceType::t>(_random());
-        State piece = pieces[_piece][_pieceOrientation];
+        State piece = patchPiece(pieces[_piece][_pieceOrientation], _piece);
         int yoffset = pieceInitialYOffset[_piece];
         int xoffset = 4 + (_hor - 8) / 2 - piece.size() / 2;
         _bbPiece = { xoffset, _vert - 4 - (int)piece.size() + yoffset, (int)piece.size() };
-        rstd::reverse(piece); // pieces and the grid have different coord systems (y axis)
         paste(piece, _dynamicGrid, _bbPiece.x, _bbPiece.y);
     }
 
@@ -218,8 +216,8 @@ class Tetris::impl {
         assert(_staticGrid.size() == state.size());
         for (int x = 0; x < _hor; ++x) {
             for (int y = 0; y < _vert; ++y) {
-                if (state.at(y).at(x) == CellState::Shown &&
-                        _staticGrid.at(y).at(x) == CellState::Shown)
+                if (state.at(y).at(x).state == CellState::Shown &&
+                        _staticGrid.at(y).at(x).state == CellState::Shown)
                     return true;
             }
         }
@@ -229,8 +227,9 @@ class Tetris::impl {
     void stamp(State const& state) {
         for (int x = 0; x < _hor; ++x) {
             for (int y = 0; y < _vert; ++y) {
-                if (state.at(y).at(x) == CellState::Shown) {
-                    _staticGrid.at(y).at(x) = CellState::Shown;
+                CellInfo cellInfo = state.at(y).at(x);
+                if (cellInfo.state == CellState::Shown) {
+                    _staticGrid.at(y).at(x) = cellInfo;
                 }
             }
         }
@@ -238,11 +237,11 @@ class Tetris::impl {
 
     void kill() {
         std::for_each(begin(_staticGrid) + 4, end(_staticGrid), [](Line& line) {
-            bool hit = rstd::all_of(line, [](CellState cell) {
-                    return cell == CellState::Shown;
+            bool hit = rstd::all_of(line, [](CellInfo cell) {
+                    return cell.state == CellState::Shown;
             });
             if (hit) {
-                rstd::fill(line, CellState::Dying);
+                rstd::fill(line, CellInfo { CellState::Dying });
             }
         });
     }
@@ -251,12 +250,13 @@ class Tetris::impl {
         _stats.lines += lines;
         int scores[] = { 0, 100, 200, 400, 800 };
         _stats.score += scores[lines];
+        _stats.level = _stats.lines / 10;
     }
 
     void drop() {
         auto res = _dynamicGrid;
         std::copy(begin(res) + 1, end(res), begin(res));
-        rstd::fill(res.at(_vert - 1), CellState::Hidden);
+        rstd::fill(res.at(_vert - 1), CellInfo { CellState::Hidden });
 
         if (collision(res)) {
             stamp(_dynamicGrid);
@@ -272,9 +272,8 @@ class Tetris::impl {
         State state;
         state.resize(height);
         for (Line& line : state) {
-            PieceOrientation::t nextOrientation(PieceOrientation::t prev);
             line.resize(width);
-            rstd::fill(line, val);
+            rstd::fill(line, CellInfo { val });
         }
         return state;
     }
@@ -296,7 +295,7 @@ class Tetris::impl {
     }
 
     PieceOrientation::t nextOrientation(PieceOrientation::t prev) {
-        return OrientationCircle[(prev + 1) % OrientationCircle.size()];
+        return static_cast<PieceOrientation::t>((prev + 1) % PieceOrientation::count);
     }
 public:
     impl(unsigned hor, unsigned vert)
@@ -305,6 +304,7 @@ public:
           _random(0, PieceType::count - 1)
     {
         _nextPiece = static_cast<PieceType::t>(_random());
+        _piece = _nextPiece;
         State inner = createState(hor, vert + 4, CellState::Hidden);
         _staticGrid = createState(_hor, _vert, CellState::Shown);
         paste(inner, _staticGrid, 4, 4);
@@ -313,19 +313,20 @@ public:
 
     void collect() {
         auto middle = rstd::stable_partition(_staticGrid, [](Line const& line) {
-            return !rstd::all_of(line, [](CellState cell) {
-                return cell == CellState::Dying;
+            return !rstd::all_of(line, [](CellInfo cell) {
+                return cell.state == CellState::Dying;
             });
         });
         updateStats(std::distance(middle, end(_staticGrid)));
-        Line emptyLine(_hor, CellState::Shown);
-        std::fill(begin(emptyLine) + 4, end(emptyLine) - 4, CellState::Hidden);
+        Line emptyLine(_hor, { CellState::Shown });
+        std::fill(begin(emptyLine) + 4, end(emptyLine) - 4, CellInfo { CellState::Hidden });
         std::fill(middle, end(_staticGrid), emptyLine);
     }
 
-    CellState getState(int x, int y) {
-        if (_dynamicGrid.at(y + 4).at(x + 4) == CellState::Shown)
-            return CellState::Shown;
+    CellInfo getState(int x, int y) {
+        CellInfo& dynInfo = _dynamicGrid.at(y + 4).at(x + 4);
+        if (dynInfo.state == CellState::Shown)
+            return dynInfo;
         return _staticGrid.at(y + 4).at(x + 4);
     }
 
@@ -357,8 +358,7 @@ public:
         int offset = leftSpike - rightSpike;
         movePieceHor(copy, offset);
         auto newOrient = nextOrientation(_pieceOrientation);
-        State nextPiece = pieces[_piece][newOrient];
-        rstd::reverse(nextPiece);
+        State nextPiece = patchPiece(pieces[_piece][newOrient], _piece);
         paste(nextPiece, copy, _bbPiece.x + offset, _bbPiece.y);
         if (!collision(copy)) {
             _dynamicGrid = copy;
@@ -369,10 +369,12 @@ public:
     TetrisStatistics getStats() {
         return _stats;
     }
-    CellState getNextPieceState(int x, int y) {
+    CellInfo getNextPieceState(int x, int y) {
         State state = createState(4, 4, CellState::Hidden);
-        State piece = pieces[_nextPiece][PieceOrientation::Up];
+        assert((unsigned)_nextPiece < PieceType::count);
+        State piece = patchPiece(pieces[_nextPiece][PieceOrientation::Up], _nextPiece);
         paste(piece, state, 0, 0);
+        assert((unsigned)state.at(y).at(x).piece < PieceType::count);
         return state.at(y).at(x);
     }
 };
@@ -381,11 +383,11 @@ Tetris::Tetris(int hor, int vert)
     : _impl(new impl(hor, vert))
 { }
 
-CellState Tetris::getState(int x, int y) {
+CellInfo Tetris::getState(int x, int y) {
     return _impl->getState(x, y);
 }
 
-CellState Tetris::getNextPieceState(int x, int y) {
+CellInfo Tetris::getNextPieceState(int x, int y) {
     return _impl->getNextPieceState(x, y);
 }
 

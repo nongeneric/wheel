@@ -6,13 +6,13 @@ set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "C:/mingw32/lib")
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
 find_package(Boost COMPONENTS log system filesystem thread chrono REQUIRED)
-include_directories(${Boost_INCLUDE_DIRS})
+include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
 
 add_definitions(-DDEBUG)
-set(CMAKE_CXX_FLAGS "-g -O0 -Wall -Werror -std=c++11 ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "-g -O0 -Wall -Wextra -Werror -std=c++11 ${CMAKE_CXX_FLAGS}")
 
-include_directories($ENV{LOCAL_DIR}/include/freetype2)
+include_directories(SYSTEM $ENV{LOCAL_DIR}/include/freetype2)
 
 FILE(COPY cube.ply DESTINATION .)
 FILE(COPY LiberationSans-Regular.ttf DESTINATION .)

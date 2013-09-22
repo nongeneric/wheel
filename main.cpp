@@ -30,7 +30,7 @@ const int g_TetrisHor = 10;
 const int g_TetrisVert = 20;
 
 template <typename FormatType>
-void appendFormat(FormatType& fmt) { }
+void appendFormat(FormatType&) { }
 
 template <typename FormatType, typename T, typename... Ts>
 void appendFormat(FormatType& fmt, T arg, Ts... args) {
@@ -48,6 +48,8 @@ struct Vertex {
     glm::vec3 pos;
     glm::vec2 uv;
     glm::vec3 normal;
+    Vertex(glm::vec3 pos, glm::vec2 uv, glm::vec3 normal = glm::vec3 {})
+        : pos(pos), uv(uv), normal(normal) { }
 };
 
 class Mesh;
@@ -89,6 +91,7 @@ public:
     }
     void unbind() {
         glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(0);
     }
 };
 
@@ -287,16 +290,22 @@ Texture oneColorTex(unsigned color) {
     return tex;
 }
 
+struct TrunkCube {
+    Mesh mesh;
+    CellInfo info;
+    TrunkCube(Mesh& mesh, CellInfo info = CellInfo{}) : mesh(mesh), info(info) { }
+};
+
 const float cubeSpace = 0.2f;
 class Trunk {
-    std::vector<Mesh> _cubes;
-    std::vector<Mesh> _border;
+    std::vector<TrunkCube> _cubes;
+    std::vector<TrunkCube> _border;
     glm::mat4 _pos;
     int _hor, _vert;
     bool _drawBorder;
     Texture _texBorder;
-    Texture _texBody;
-    Mesh& at(int x, int y) {
+    std::vector<Texture> _pieceColors;
+    TrunkCube& at(int x, int y) {
         return _cubes.at(_hor * y + x);
     }
 public:
@@ -304,9 +313,17 @@ public:
         : _hor(hor),
           _vert(vert),
           _drawBorder(drawBorder),
-          _texBorder(oneColorTex(0xBBBB00FF)),
-          _texBody(oneColorTex(0xFFFFFFFF))
+          _texBorder(oneColorTex(0xFFFFFFFF))
     {
+        _pieceColors.resize(PieceType::count);
+        _pieceColors[PieceType::I] = oneColorTex(0xFF0000FF);
+        _pieceColors[PieceType::J] = oneColorTex(0xFFFFFFFF);
+        _pieceColors[PieceType::L] = oneColorTex(0xffa500FF);
+        _pieceColors[PieceType::O] = oneColorTex(0xffff00FF);
+        _pieceColors[PieceType::S] = oneColorTex(0xff00ffFF);
+        _pieceColors[PieceType::T] = oneColorTex(0x00ffffFF);
+        _pieceColors[PieceType::Z] = oneColorTex(0x00FF00FF);
+
         float xOffset = (1.0 * (hor + 2) + cubeSpace * (hor + 1) - 0.5) / -2.0f;
         for (int y = 0; y < vert; ++y) {
             for (int x = 0; x < hor; ++x) {
@@ -314,7 +331,7 @@ public:
                 float xPos = xOffset + (cubeSpace + 1) * (x + 1);
                 float yPos = y * (1 + cubeSpace) + cubeSpace;
                 setPos(cube, glm::vec3 { xPos, yPos, 0 });
-                _cubes.push_back(cube);
+                _cubes.emplace_back(cube);
             }
         }
         if (!_drawBorder)
@@ -322,22 +339,25 @@ public:
         for (int y = 0; y < vert; ++y) {
             Mesh left = loadMesh();
             setPos(left, glm::vec3 { xOffset, y * (1 + cubeSpace) + cubeSpace, 0 });
-            _border.push_back(left);
+            _border.emplace_back(left);
             Mesh right = loadMesh();
             float xPos = xOffset + (hor + 1) * (1 + cubeSpace);
             float yPos = y * (1 + cubeSpace) + cubeSpace;
             setPos(right, glm::vec3 { xPos, yPos, 0 });
-            _border.push_back(right);
+            _border.emplace_back(right);
         }
     }
     void animateDestroy(int x, int y, fseconds duration) {
-        setAnimation(at(x, y), ScaleAnimation(duration, 1, 0));
+        setAnimation(at(x, y).mesh, ScaleAnimation(duration, 1, 0));
     }
     void hide(int x, int y) {
-        setScale(at(x, y), glm::vec3 {0, 0, 0});
+        setScale(at(x, y).mesh, glm::vec3 {0, 0, 0});
     }
     void show(int x, int y) {
-        setScale(at(x, y), glm::vec3 {1, 1, 1});
+        setScale(at(x, y).mesh, glm::vec3 {1, 1, 1});
+    }
+    void setCellInfo(int x, int y, CellInfo& info) {
+        at(x, y).info = info;
     }
     friend void animate(Trunk& trunk, fseconds dt);
     friend void draw(Trunk&, int, int, glm::mat4, Program&);
@@ -346,16 +366,14 @@ public:
 };
 
 void draw(Trunk& t, int mv_location, int mvp_location, glm::mat4 vp, Program& program) {
-    {
-        BindLock<Texture> texLock(t._texBody);
-        for (Mesh& m : t._cubes)
-            ::draw(m, mv_location, mvp_location, vp * t._pos, program);
+    for (TrunkCube& cube : t._cubes) {
+        assert((unsigned)cube.info.piece < PieceType::count);
+        BindLock<Texture> texLock(t._pieceColors.at(cube.info.piece));
+        ::draw(cube.mesh, mv_location, mvp_location, vp * t._pos, program);
     }
-    {
-        BindLock<Texture> texLock(t._texBorder);
-        for (Mesh& m : t._border)
-            ::draw(m, mv_location, mvp_location, vp * t._pos, program);
-    }
+    BindLock<Texture> texLock(t._texBorder);
+    for (TrunkCube& cube : t._border)
+        ::draw(cube.mesh, mv_location, mvp_location, vp * t._pos, program);
 }
 
 void setPos(Trunk& trunk, glm::vec3 pos) {
@@ -363,8 +381,8 @@ void setPos(Trunk& trunk, glm::vec3 pos) {
 }
 
 void animate(Trunk& trunk, fseconds dt) {
-    for (Mesh& m : trunk._cubes)
-        animate(m, dt);
+    for (TrunkCube& cube : trunk._cubes)
+        animate(cube.mesh, dt);
 }
 
 class MeshWrapper {
@@ -479,7 +497,7 @@ std::vector<MeshWrapper> genMeshes() {
 
 fseconds copyState(
         Tetris& tetris,
-        std::function<CellState(Tetris&, int x, int y)> getter,
+        std::function<CellInfo(Tetris&, int x, int y)> getter,
         int xMax,
         int yMax,
         Trunk& trunk)
@@ -488,7 +506,10 @@ fseconds copyState(
     fseconds duration(0.7f);
     for (int x = 0; x < xMax; ++x) {
         for (int y = 0; y < yMax; ++y) {
-            switch (getter(tetris, x, y)) {
+            CellInfo cellInfo = getter(tetris, x, y);
+            assert((unsigned)cellInfo.piece < PieceType::count);
+            trunk.setCellInfo(x, y, cellInfo);
+            switch (cellInfo.state) {
             case CellState::Shown:
                 trunk.show(x, y);
                 break;
@@ -598,6 +619,8 @@ class Keyboard {
         int state;
         fseconds elapsed;
         fseconds repeat;
+        ButtonState(int state = GLFW_RELEASE, fseconds elapsed = fseconds{}, fseconds repeat = fseconds{})
+            : state(state), elapsed(elapsed), repeat(repeat) { }
     };
     fseconds _repeatTime = fseconds(0.3f);
     std::map<int, ButtonState> _prevStates;
@@ -658,6 +681,17 @@ public:
     }
 };
 
+void drawText(std::string str, Text& text, HudElem& elem, unsigned x, unsigned y, glm::vec2 framebuffer) {
+    auto bitmap = text.renderText(str, framebuffer.y * 0.05);
+    unsigned height = FreeImage_GetHeight(bitmap.get());
+    elem.setBitmap(
+        FreeImage_GetBits(bitmap.get()),
+        FreeImage_GetWidth(bitmap.get()),
+        height,
+        x, y, framebuffer.x, framebuffer.y
+    );
+}
+
 int main() {
     Window window("wheel");
     Program program;
@@ -687,7 +721,7 @@ int main() {
     fseconds elapsed;
     fseconds wait;
 
-    HudElem hudLines, hudScore;
+    HudElem hudLines, hudScore, hudLevel;
     Text text;
 
     fseconds delay = fseconds(1.0f);
@@ -720,6 +754,15 @@ int main() {
             0, size.y - FreeImage_GetHeight(scoreText.get()) - linesHeight, size.x, size.y
         );
 
+        std::string level = vformat("Level: %d", tetris.getStats().level);
+        auto levelText = text.renderText(level, size.y * 0.05);
+        hudLevel.setBitmap(
+            FreeImage_GetBits(levelText.get()),
+            FreeImage_GetWidth(levelText.get()),
+            FreeImage_GetHeight(levelText.get()),
+            0, size.y - FreeImage_GetHeight(scoreText.get()) - FreeImage_GetHeight(linesText.get()) - linesHeight, size.x, size.y
+        );
+
         auto proj = glm::perspective(30.0f, size.x / size.y, 1.0f, 1000.0f);
         glm::mat4 vpMatrix = proj * getViewMatrix(
             cameraAngles,
@@ -743,6 +786,7 @@ int main() {
 
         hudLines.draw();
         hudScore.draw();
+        hudLevel.draw();
 
         window.swap();
 
@@ -750,7 +794,7 @@ int main() {
             continue;
 
         bool normalStep = false;
-        fseconds levelPenalty(0.1f * (tetris.getStats().lines / 10));
+        fseconds levelPenalty(0.1f * tetris.getStats().level);
         if (elapsed > delay - levelPenalty) {
             normalStep = true;
             tetris.collect();
