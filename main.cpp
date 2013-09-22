@@ -670,28 +670,45 @@ void drawText(std::string str, Text& text, HudElem& elem, unsigned x, unsigned y
 
 class HudList {
     struct ListItem {
+        std::string prevText;
         std::string text;
+        bool invalidated = false;
         HudElem elem;
     };
+    glm::vec2 _prevFrame;
     std::vector<ListItem> _lines;
     Text* _text;
 public:
     HudList(int lines, Text* text) : _lines(lines), _text(text) { }
     void setLine(int i, std::string text) {
-        _lines.at(i).text = text;
+        ListItem& item = _lines.at(i);
+        if (item.prevText != text) {
+            item.prevText = item.text;
+            item.text = text;
+            item.invalidated = true;
+        }
     }
     void draw(glm::vec2 frame) {
+        if (_prevFrame != frame) {
+            for (ListItem& item : _lines)
+                item.invalidated = true;
+            _prevFrame = frame;
+        }
+
         int i = 1;
         for (ListItem& item : _lines) {
-            auto bitmap = _text->renderText(item.text, frame.y * 0.05);
-            unsigned height = FreeImage_GetHeight(bitmap.get());
-            item.elem.setBitmap(
-                FreeImage_GetBits(bitmap.get()),
-                FreeImage_GetWidth(bitmap.get()),
-                height,
-                0,
-                frame.y - (height + 0.01 * frame.y) * i, frame.x, frame.y
-            );
+            if (item.invalidated) {
+                auto bitmap = _text->renderText(item.text, frame.y * 0.05);
+                unsigned height = FreeImage_GetHeight(bitmap.get());
+                item.elem.setBitmap(
+                    FreeImage_GetBits(bitmap.get()),
+                    FreeImage_GetWidth(bitmap.get()),
+                    height,
+                    0,
+                    frame.y - (height + 0.01 * frame.y) * i, frame.x, frame.y
+                );
+                item.invalidated = false;
+            }
             i++;
             item.elem.draw();
         }
@@ -735,7 +752,7 @@ int main() {
     Text text;
     HudElem hudGameOver;
 
-    HudList hudList(4, &text);
+    HudList hudList(5, &text);
     std::string gameOverText = "Game Over!";
     fseconds delay = fseconds(1.0f);
     fseconds fpsElapsed = fseconds();
@@ -750,15 +767,6 @@ int main() {
 
         glm::vec2 size = window.getFramebufferSize();
         glViewport(0, 0, size.x, size.y);
-
-        auto bmGameOver = text.renderText(gameOverText, size.y * 0.08);
-        hudGameOver.setBitmap(
-            FreeImage_GetBits(bmGameOver.get()),
-            FreeImage_GetWidth(bmGameOver.get()),
-            FreeImage_GetHeight(bmGameOver.get()),
-            (size.x - FreeImage_GetWidth(bmGameOver.get()) ) / 2,
-            size.y - FreeImage_GetHeight(bmGameOver.get()) - size.y * 0.05, size.x, size.y
-        );
 
         framesCount++;
         if (fpsElapsed > fseconds(1.0f)) {
@@ -795,10 +803,10 @@ int main() {
             draw(mesh, U_WORLD, U_MVP, vpMatrix, program);
         }
 
-        hudList.draw(size);
         if (tetris.getStats().gameOver) {
-            hudGameOver.draw();
+            hudList.setLine(4, gameOverText);
         }
+        hudList.draw(size);
 
         window.swap();
 
@@ -847,7 +855,7 @@ int main() {
             });
             keys.onDown(GLFW_KEY_ESCAPE, [&]() {
                 wait = fseconds();
-                gameOverText = "";
+                hudList.setLine(4, "");
                 tetris.reset();
             });
             keysInit = true;
