@@ -1,0 +1,1 @@
+int desktop_entry();

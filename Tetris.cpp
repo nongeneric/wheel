@@ -1,5 +1,4 @@
 #include "Tetris.h"
-#include "Random.h"
 #include "rstd.h"
 #include <assert.h>
 
@@ -159,7 +158,7 @@ class Tetris::impl {
     PieceType::t _piece;
     PieceType::t _nextPiece;
     PieceOrientation::t _pieceOrientation;
-    Random<unsigned> _random;
+    std::function<PieceType::t()> _generator;
     TetrisStatistics _stats;
     State cut(State& source, unsigned posX, unsigned posY, unsigned size) {
         State res(size);
@@ -198,14 +197,17 @@ class Tetris::impl {
     void drawPiece() {
         _pieceOrientation = PieceOrientation::Up;
         _piece = _nextPiece;
-        _nextPiece = static_cast<PieceType::t>(_random());
+        _nextPiece = _generator();
         State piece = patchPiece(pieces[_piece][_pieceOrientation], _piece);
         int yoffset = pieceInitialYOffset[_piece];
         int xoffset = 4 + (_hor - 8) / 2 - piece.size() / 2;
         _bbPiece = { xoffset, _vert - 4 - (int)piece.size() + yoffset, (int)piece.size() };
-        paste(piece, _dynamicGrid, _bbPiece.x, _bbPiece.y);
-        if (collision(_dynamicGrid)) {
+        State copy = _dynamicGrid;
+        paste(piece, copy, _bbPiece.x, _bbPiece.y);
+        if (collision(copy)) {
             _stats.gameOver = true;
+        } else {
+            _dynamicGrid = copy;
         }
     }
 
@@ -301,10 +303,10 @@ class Tetris::impl {
         return static_cast<PieceOrientation::t>((prev + 1) % PieceOrientation::count);
     }
 public:
-    impl(unsigned hor, unsigned vert)
+    impl(unsigned hor, unsigned vert, std::function<PieceType::t()> generator)
         : _hor(hor + 8),
           _vert(vert + 8),
-          _random(0, PieceType::count - 1)
+          _generator(generator)
     {
         reset();
     }
@@ -377,7 +379,7 @@ public:
     }
     void reset() {
         _nothingFalling = true;
-        _nextPiece = static_cast<PieceType::t>(_random());
+        _nextPiece = _generator();
         _piece = _nextPiece;
         State inner = createState(_hor - 8, _vert - 4, CellState::Hidden);
         _staticGrid = createState(_hor, _vert, CellState::Shown);
@@ -387,15 +389,15 @@ public:
     }
 };
 
-Tetris::Tetris(int hor, int vert)
-    : _impl(new impl(hor, vert))
+Tetris::Tetris(int hor, int vert, std::function<PieceType::t()> generator)
+    : _impl(new impl(hor, vert, generator))
 { }
 
-CellInfo Tetris::getState(int x, int y) {
+CellInfo Tetris::getState(int x, int y) const {
     return _impl->getState(x, y);
 }
 
-CellInfo Tetris::getNextPieceState(int x, int y) {
+CellInfo Tetris::getNextPieceState(int x, int y) const {
     return _impl->getNextPieceState(x, y);
 }
 
@@ -423,7 +425,7 @@ void Tetris::reset() {
     _impl->reset();
 }
 
-TetrisStatistics Tetris::getStats() {
+TetrisStatistics Tetris::getStats() const {
     return _impl->getStats();
 }
 

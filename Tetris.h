@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <assert.h>
 
@@ -10,7 +11,7 @@ namespace PieceType {
 }
 
 enum class CellState {
-    Shown, Hidden, Dying
+    Hidden, Shown, Dying
 };
 
 struct CellInfo {
@@ -31,15 +32,15 @@ class Tetris {
     class impl;
     std::unique_ptr<impl> _impl;
 public:
-    Tetris(int hor, int vert);
-    CellInfo getState(int x, int y);
-    CellInfo getNextPieceState(int x, int y); // 4x4
+    Tetris(int hor, int vert, std::function<PieceType::t()> generator);
+    CellInfo getState(int x, int y) const;
+    CellInfo getNextPieceState(int x, int y) const; // 4x4
     bool step();
     void moveRight();
     void moveLeft();
     void rotate();
     void collect();
     void reset();
-    TetrisStatistics getStats();
+    TetrisStatistics getStats() const;
     ~Tetris();
 };

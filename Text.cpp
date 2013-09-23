@@ -24,7 +24,7 @@ struct CacheKey {
 struct CacheEntry {
     FT_Int bitmapTop;
     FT_Int bitmapLeft;
-    FT_Int advanceX;
+    FT_Pos advanceX;
     BitmapPtr bitmap;
 };
 

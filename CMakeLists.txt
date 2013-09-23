@@ -27,8 +27,10 @@ Window.cpp
 Random.h
 Text.h
 Text.cpp
+entry.h
+entry.cpp
 rstd.h
-main.cpp
+vformat.h
 )
 
 set(WINDOWS_LIB_DEPS
@@ -50,8 +52,12 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     set(LIBS ${WINDOWS_LIB_DEPS})
 endif()
 
-add_executable(${PROJECT_NAME} ${SRC_LIST})
+add_library(${PROJECT_NAME} ${SRC_LIST})
+
+project(desktop)
+add_executable(${PROJECT_NAME} main.cpp)
 target_link_libraries(${PROJECT_NAME}
+    wheel
     glfw3
     assimp
     freetype
@@ -59,3 +65,6 @@ target_link_libraries(${PROJECT_NAME}
     ${LIBS}
     ${Boost_LIBRARIES}
 )
+
+add_executable(tests tests.cpp)
+target_link_libraries(tests wheel gtest pthread ${Boost_LIBRARIES})
