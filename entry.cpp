@@ -208,14 +208,6 @@ void animate(Mesh& mesh, fseconds dt) {
     mesh._animation.animate(dt, [&]() -> Mesh& { return mesh; });
 }
 
-glm::mat4 getViewMatrix(glm::vec3 const& angles, glm::vec3 const& pos) {
-    glm::mat4 rotation = glm::rotate( glm::mat4(), -angles.x, glm::vec3 { 1, 0, 0 } ) *
-                         glm::rotate( glm::mat4(), -angles.y, glm::vec3 { 0, 1, 0 } ) *
-                         glm::rotate( glm::mat4(), -angles.z, glm::vec3 { 0, 0, 1 } );
-    glm::mat4 translation = glm::translate( {}, -pos );
-    return translation * rotation;
-}
-
 Mesh loadMesh() {
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile("cube.ply",
@@ -715,6 +707,60 @@ public:
     }
 };
 
+class FpsCounter {
+    fseconds _elapsed;
+    int _framesCount = 0;
+    int _prevFPS = -1;
+public:
+    void advance(fseconds dt) {
+        _elapsed += dt;
+        _framesCount++;
+        if (_elapsed > fseconds(1.0f)) {
+            _prevFPS = _framesCount;
+            _framesCount = 0;
+            _elapsed = fseconds();
+        }
+    }
+    int fps() const {
+        return _prevFPS;
+    }
+};
+
+class Camera {
+    glm::vec3 _defaultAngles{0, 0, 0};
+    glm::vec3 _defaultPos{0, 13, 50};
+    glm::vec3 _angles = _defaultAngles;
+    glm::vec3 _pos = _defaultPos;
+    glm::vec2 _cursor{ 300, 300 };
+public:
+    glm::mat4 view() {
+        glm::mat4 rotation = glm::rotate( glm::mat4(), -_angles.x, glm::vec3 { 1, 0, 0 } ) *
+                             glm::rotate( glm::mat4(), -_angles.y, glm::vec3 { 0, 1, 0 } ) *
+                             glm::rotate( glm::mat4(), -_angles.z, glm::vec3 { 0, 0, 1 } );
+        glm::mat4 translation = glm::translate( {}, -_pos );
+        return translation * rotation;
+    }
+    void updateKeyboard(bool left, bool right, bool up, bool down) {
+        _pos += glm::vec3 {
+            -0.25 * left + 0.25 * right,
+            0,
+            -0.25 * up + 0.25 * down
+        };
+    }
+    void updateMouse(Window& window) {
+        bool mouseLeftPressed = window.getMouseButton(GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+        if (mouseLeftPressed) {
+            glm::vec2 delta = window.getCursorPos() - _cursor;
+            _angles += glm::vec3 { -0.5 * delta.y, -0.5 * delta.x, 0 };
+        }
+        _cursor = window.getCursorPos();
+    }
+    void reset() {
+        _angles = _defaultAngles;
+        _pos = _defaultPos;
+    }
+};
+
 int desktop_entry() {
     Window window("wheel");
     Program program;
@@ -730,17 +776,12 @@ int desktop_entry() {
     std::vector<MeshWrapper> meshes = genMeshes();
 
     Tetris tetris(g_TetrisHor, g_TetrisVert, Generator());
-
-    glm::vec3 defaultCameraAngles{0, 0, 0};
-    glm::vec3 defaultCameraPos{0, 15, 60};
-    glm::vec3 cameraAngles{0, 0, 0};
-    glm::vec3 cameraPos{0, 15, 60};
+    Camera camera;
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glClearColor(0,0,0,0);
-    glm::vec2 cursor{ 300, 300 };
+    glClearColor(0,0,0,0);    
     auto past = chrono::high_resolution_clock::now();
     fseconds elapsed;
     fseconds wait;
@@ -752,10 +793,8 @@ int desktop_entry() {
     std::string gameOverText = "Game Over!";
     std::string pauseText = "PAUSED";
     fseconds delay = fseconds(1.0f);
-    fseconds fpsElapsed = fseconds();
-    int framesCount = 0;
-    int prevFPS = 0;
 
+    FpsCounter fps;
     Keyboard keys(&window);
     bool keysInit = false;
     bool nextPiece = false;
@@ -766,34 +805,34 @@ int desktop_entry() {
         glm::vec2 size = window.getFramebufferSize();
         glViewport(0, 0, size.x, size.y);
 
-        framesCount++;
-        if (fpsElapsed > fseconds(1.0f)) {
-            prevFPS = framesCount;
-            (void)prevFPS;
-            framesCount = 0;
-            fpsElapsed = fseconds();
-        }
-
         hudList.setLine(0, vformat("Lines: %d", tetris.getStats().lines));
         hudList.setLine(1, vformat("Score: %d", tetris.getStats().score));
         hudList.setLine(2, vformat("Level: %d", tetris.getStats().level));
-        hudList.setLine(3, vformat("FPS: %d", prevFPS));
+        hudList.setLine(3, vformat("FPS: %d", fps.fps()));
         hudList.setLine(5, paused ? pauseText : "");
 
         auto proj = glm::perspective(30.0f, size.x / size.y, 1.0f, 1000.0f);
-        glm::mat4 vpMatrix = proj * getViewMatrix(
-            cameraAngles,
-            cameraPos
-        );
+        glm::mat4 vpMatrix = proj * camera.view();
 
         auto now = chrono::high_resolution_clock::now();
         fseconds dt = chrono::duration_cast<fseconds>(now - past);
-        fpsElapsed += dt;
+        fps.advance(dt);
         if (paused)
             dt = fseconds();
         wait -= dt;
         elapsed += dt;
         past = now;
+
+        bool waiting = wait > fseconds();
+
+        bool normalStep = false;        
+        fseconds levelPenalty(speedCurve(tetris.getStats().level));
+        if (elapsed > delay - levelPenalty && !tetris.getStats().gameOver && !waiting) {
+            normalStep = true;
+            tetris.collect();
+            nextPiece |= tetris.step();
+            elapsed = fseconds();
+        }
 
         BindLock<Program> programLock(program);
         program.setUniform(U_GSAMPLER, 0);
@@ -811,18 +850,6 @@ int desktop_entry() {
 
         window.swap();
 
-        if (wait > fseconds())
-            continue;
-
-        bool normalStep = false;        
-        fseconds levelPenalty(speedCurve(tetris.getStats().level));
-        if (elapsed > delay - levelPenalty && !tetris.getStats().gameOver) {
-            normalStep = true;
-            tetris.collect();
-            nextPiece |= tetris.step();
-            elapsed = fseconds();
-        }
-
         int leftPressed = 0, rightPressed = 0, upPressed = 0, downPressed = 0;
         if (!keysInit) {
             keys.onRepeat(GLFW_KEY_LEFT, fseconds(0.1f), [&]() {
@@ -835,7 +862,7 @@ int desktop_entry() {
                 tetris.rotate();
             });
             keys.onRepeat(GLFW_KEY_DOWN, fseconds(0.03f), [&]() {
-                if (!normalStep && !tetris.getStats().gameOver) {
+                if (!normalStep && !tetris.getStats().gameOver && !waiting) {
                     nextPiece |= tetris.step();
                 }
             });
@@ -852,8 +879,7 @@ int desktop_entry() {
                 downPressed = 1;
             });
             keys.onDown(GLFW_KEY_KP_5, [&]() {
-                cameraAngles = defaultCameraAngles;
-                cameraPos = defaultCameraPos;
+                camera.reset();
             });
             keys.onDown(GLFW_KEY_ESCAPE, [&]() {
                 wait = fseconds();
@@ -871,21 +897,14 @@ int desktop_entry() {
             keys.stopRepeats(GLFW_KEY_DOWN);
             nextPiece = false;
         }
-        cameraPos += glm::vec3 {
-            -0.25 * leftPressed + 0.25 * rightPressed,
-            0,
-            -0.25 * upPressed + 0.25 * downPressed
-        };
-        bool mouseLeftPressed = window.getMouseButton(GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-        if (mouseLeftPressed) {
-            glm::vec2 delta = window.getCursorPos() - cursor;
-            cameraAngles += glm::vec3 { -0.5 * delta.y, -0.5 * delta.x, 0 };
-        }
-        cursor = window.getCursorPos();
+        camera.updateKeyboard(leftPressed, rightPressed, upPressed, downPressed);
+        camera.updateMouse(window);
 
-        wait = copyState(tetris, &Tetris::getState, g_TetrisHor, g_TetrisVert, meshes[trunk].obj<Trunk>());
-        copyState(tetris, &Tetris::getNextPieceState, 4, 4, meshes[nextPieceTrunk].obj<Trunk>());
-        tetris.collect();
+        if (!waiting) {
+            wait = copyState(tetris, &Tetris::getState, g_TetrisHor, g_TetrisVert, meshes[trunk].obj<Trunk>());
+            copyState(tetris, &Tetris::getNextPieceState, 4, 4, meshes[nextPieceTrunk].obj<Trunk>());
+            tetris.collect();
+        }
     }
     return 0;
 }

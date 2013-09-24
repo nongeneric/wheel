@@ -289,7 +289,7 @@ class Tetris::impl {
     }
 
     void moveHor(int offset) {
-        if (_nothingFalling)
+        if (_nothingFalling || _stats.gameOver)
             return;
         auto state = _dynamicGrid;
         movePieceHor(state, offset);
