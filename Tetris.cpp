@@ -160,6 +160,7 @@ class Tetris::impl {
     PieceOrientation::t _pieceOrientation;
     std::function<PieceType::t()> _generator;
     TetrisStatistics _stats;
+    unsigned _initialLevel;
     State cut(State& source, unsigned posX, unsigned posY, unsigned size) {
         State res(size);
         for (size_t y = 0; y < size; ++y) {
@@ -255,7 +256,7 @@ class Tetris::impl {
         _stats.lines += lines;
         int scores[] = { 0, 100, 200, 400, 800 };
         _stats.score += scores[lines];
-        _stats.level = _stats.lines / 10;
+        _stats.level = std::max(_stats.lines / 10, _initialLevel);
     }
 
     void drop() {
@@ -303,10 +304,11 @@ class Tetris::impl {
         return static_cast<PieceOrientation::t>((prev + 1) % PieceOrientation::count);
     }
 public:
-    impl(unsigned hor, unsigned vert, std::function<PieceType::t()> generator)
+    impl(unsigned hor, unsigned vert, std::function<PieceType::t()> generator, unsigned initialLevel)
         : _hor(hor + 8),
           _vert(vert + 8),
-          _generator(generator)
+          _generator(generator),
+          _initialLevel(initialLevel)
     {
         reset();
     }
@@ -389,8 +391,8 @@ public:
     }
 };
 
-Tetris::Tetris(int hor, int vert, std::function<PieceType::t()> generator)
-    : _impl(new impl(hor, vert, generator))
+Tetris::Tetris(int hor, int vert, std::function<PieceType::t()> generator, unsigned initialLevel)
+    : _impl(new impl(hor, vert, generator, initialLevel))
 { }
 
 CellInfo Tetris::getState(int x, int y) const {

@@ -4,6 +4,7 @@
 #include "Tetris.h"
 #include "Text.h"
 #include "vformat.h"
+#include "Config.h"
 
 #include <cstring>
 #include <assimp/Importer.hpp>
@@ -453,10 +454,10 @@ fseconds copyState(
         std::function<CellInfo(Tetris&, int x, int y)> getter,
         int xMax,
         int yMax,
-        Trunk& trunk)
+        Trunk& trunk,
+        fseconds duration)
 {
-    bool dying = false;
-    fseconds duration(0.7f);
+    bool dying = false;    
     for (int x = 0; x < xMax; ++x) {
         for (int y = 0; y < yMax; ++y) {
             CellInfo cellInfo = getter(tetris, x, y);
@@ -761,8 +762,23 @@ public:
     }
 };
 
+bool loadConfig(TetrisConfig& config) {
+    try {
+        config.load("config.xml");
+    } catch (...) {
+        BOOST_LOG_TRIVIAL(error) << "an error ocurred while loading the config file";
+        return false;
+    }
+    return true;
+}
+
 int desktop_entry() {
-    Window window("wheel");
+    TetrisConfig config;
+    if (!loadConfig(config)) {
+        return 1;
+    }
+
+    Window window("wheel", config.fullScreen, config.screenWidth, config.screenHeight);
     Program program;
     program.addVertexShader(vertexShader);
     program.addFragmentShader(fragmentShader);
@@ -775,7 +791,7 @@ int desktop_entry() {
 
     std::vector<MeshWrapper> meshes = genMeshes();
 
-    Tetris tetris(g_TetrisHor, g_TetrisVert, Generator());
+    Tetris tetris(g_TetrisHor, g_TetrisVert, Generator(), config.initialLevel);
     Camera camera;
 
     glEnable(GL_DEPTH_TEST);
@@ -808,10 +824,20 @@ int desktop_entry() {
         hudList.setLine(0, vformat("Lines: %d", tetris.getStats().lines));
         hudList.setLine(1, vformat("Score: %d", tetris.getStats().score));
         hudList.setLine(2, vformat("Level: %d", tetris.getStats().level));
-        hudList.setLine(3, vformat("FPS: %d", fps.fps()));
+        if (config.showFps) {
+            hudList.setLine(3, vformat("FPS: %d", fps.fps()));
+        }
         hudList.setLine(5, paused ? pauseText : "");
 
-        auto proj = glm::perspective(30.0f, size.x / size.y, 1.0f, 1000.0f);
+        float aspect = size.x / size.y;
+        glm::mat4 proj;
+        if (config.orthographic) {
+            proj = glm::ortho(
+                 -13.0f * aspect, 13.0f * aspect,
+                 -13.0f, 13.0f, 1.0f, 1000.0f);
+        } else {
+            proj = glm::perspective(30.0f, size.x / size.y, 1.0f, 1000.0f);
+        }
         glm::mat4 vpMatrix = proj * camera.view();
 
         auto now = chrono::high_resolution_clock::now();
@@ -901,10 +927,15 @@ int desktop_entry() {
         camera.updateMouse(window);
 
         if (!waiting) {
-            wait = copyState(tetris, &Tetris::getState, g_TetrisHor, g_TetrisVert, meshes[trunk].obj<Trunk>());
-            copyState(tetris, &Tetris::getNextPieceState, 4, 4, meshes[nextPieceTrunk].obj<Trunk>());
-            tetris.collect();
+            wait = copyState(tetris,
+                             &Tetris::getState,
+                             g_TetrisHor,
+                             g_TetrisVert,
+                             meshes[trunk].obj<Trunk>(),
+                             fseconds(1.0f) - levelPenalty);
+            copyState(tetris, &Tetris::getNextPieceState, 4, 4, meshes[nextPieceTrunk].obj<Trunk>(), fseconds());
         }
+        tetris.collect();
     }
     return 0;
 }

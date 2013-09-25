@@ -27,6 +27,8 @@ Window.cpp
 Random.h
 Text.h
 Text.cpp
+Config.h
+Config.cpp
 entry.h
 entry.cpp
 rstd.h

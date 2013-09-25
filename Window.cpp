@@ -3,15 +3,14 @@
 #include <stdexcept>
 #include <boost/log/trivial.hpp>
 
-Window::Window(std::string title) {
+Window::Window(std::string title, bool fullscreen, unsigned width, unsigned height) {
     if (!glfwInit())
         throw std::runtime_error("glfw init failure");
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    _window = glfwCreateWindow(600, 600, title.c_str(), NULL, NULL);
-    //_window = glfwCreateWindow(1920, 1200, title.c_str(), glfwGetPrimaryMonitor(), NULL);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);    
+    _window = glfwCreateWindow(width, height, title.c_str(), fullscreen ? glfwGetPrimaryMonitor() : NULL, NULL);
     if (_window == nullptr)
         throw std::runtime_error("window init failure");
     glfwMakeContextCurrent(_window);

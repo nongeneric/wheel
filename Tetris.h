@@ -32,7 +32,7 @@ class Tetris {
     class impl;
     std::unique_ptr<impl> _impl;
 public:
-    Tetris(int hor, int vert, std::function<PieceType::t()> generator);
+    Tetris(int hor, int vert, std::function<PieceType::t()> generator, unsigned initialLevel = 0);
     CellInfo getState(int x, int y) const;
     CellInfo getNextPieceState(int x, int y) const; // 4x4
     bool step();

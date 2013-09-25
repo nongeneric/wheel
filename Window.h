@@ -10,7 +10,7 @@
 class Window {
     GLFWwindow* _window;
 public:
-    Window(std::string title);
+    Window(std::string title, bool fullscreen, unsigned width, unsigned height);
     void swap();
     bool shouldClose();
     int getKey(int key);
