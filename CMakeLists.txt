@@ -47,6 +47,7 @@ set(LINUX_LIB_DEPS
     Xxf86vm
     Xrandr
     Xi
+    pthread
 )
 
 set(LIBS ${LINUX_LIB_DEPS})

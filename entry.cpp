@@ -25,6 +25,8 @@
 #include <assert.h>
 #include <map>
 
+#define SHADER_VERSION "#version 330\n"
+
 namespace chrono = boost::chrono;
 using fseconds = chrono::duration<float>;
 const int g_TetrisHor = 10;
@@ -396,8 +398,7 @@ public:
 };
 
 std::string vertexShader =
-        "#version 330\n"
-
+        SHADER_VERSION
         "uniform mat4 mvp;\n"
         "uniform mat4 world;\n"
         "layout(location = 0) in vec4 position;\n"
@@ -413,8 +414,7 @@ std::string vertexShader =
         ;
 
 std::string fragmentShader =
-        "#version 330\n"
-
+        SHADER_VERSION
         "in vec2 f_texCoord;\n"
         "in vec3 f_normal;\n"
         "out vec4 outputColor;\n"
@@ -457,7 +457,7 @@ fseconds copyState(
         Trunk& trunk,
         fseconds duration)
 {
-    bool dying = false;    
+    bool dying = false;
     for (int x = 0; x < xMax; ++x) {
         for (int y = 0; y < yMax; ++y) {
             CellInfo cellInfo = getter(tetris, x, y);
@@ -484,7 +484,7 @@ fseconds copyState(
 Program createBitmapProgram() {
     Program res;
     res.addVertexShader(
-        "#version 330\n"
+        SHADER_VERSION
         "layout(location = 0) in vec4 pos;\n"
         "layout(location = 1) in vec2 uv;\n"
         "uniform mat4 transform;\n"
@@ -495,7 +495,7 @@ Program createBitmapProgram() {
         "}\n"
     );
     res.addFragmentShader(
-        "#version 330\n"
+        SHADER_VERSION
         "in vec2 f_uv;\n"
         "uniform sampler2D sampler;\n"
         "out vec4 outputColor;\n"
@@ -797,7 +797,7 @@ int desktop_entry() {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glClearColor(0,0,0,0);    
+    glClearColor(0,0,0,0);
     auto past = chrono::high_resolution_clock::now();
     fseconds elapsed;
     fseconds wait;
@@ -851,44 +851,35 @@ int desktop_entry() {
 
         bool waiting = wait > fseconds();
 
-        bool normalStep = false;        
+        bool canManuallyMove = !tetris.getStats().gameOver && !waiting && !paused;
+        bool normalStep = false;
         fseconds levelPenalty(speedCurve(tetris.getStats().level));
-        if (elapsed > delay - levelPenalty && !tetris.getStats().gameOver && !waiting) {
+        if (elapsed > delay - levelPenalty && canManuallyMove) {
             normalStep = true;
             tetris.collect();
             nextPiece |= tetris.step();
             elapsed = fseconds();
         }
 
-        BindLock<Program> programLock(program);
-        program.setUniform(U_GSAMPLER, 0);
-        program.setUniform(U_AMBIENT, 0.4f);
-        //program.setUniform(U_DIFF_DIRECTION, glm::vec3(0, 0, 1));
-        for (MeshWrapper& mesh : meshes) {
-            animate(mesh, dt);
-            draw(mesh, U_WORLD, U_MVP, vpMatrix, program);
-        }
-
-        if (tetris.getStats().gameOver) {
-            hudList.setLine(4, gameOverText);
-        }
-        hudList.draw(size);
-
-        window.swap();
-
         int leftPressed = 0, rightPressed = 0, upPressed = 0, downPressed = 0;
         if (!keysInit) {
             keys.onRepeat(GLFW_KEY_LEFT, fseconds(0.1f), [&]() {
-                tetris.moveLeft();
+                if (canManuallyMove) {
+                    tetris.moveLeft();
+                }
             });
             keys.onRepeat(GLFW_KEY_RIGHT, fseconds(0.1f), [&]() {
-                tetris.moveRight();
+                if (canManuallyMove) {
+                    tetris.moveRight();
+                }
             });
             keys.onDown(GLFW_KEY_UP, [&]() {
-                tetris.rotate();
+                if (canManuallyMove) {
+                    tetris.rotate();
+                }
             });
             keys.onRepeat(GLFW_KEY_DOWN, fseconds(0.03f), [&]() {
-                if (!normalStep && !tetris.getStats().gameOver && !waiting) {
+                if (!normalStep && canManuallyMove) {
                     nextPiece |= tetris.step();
                 }
             });
@@ -936,6 +927,22 @@ int desktop_entry() {
             copyState(tetris, &Tetris::getNextPieceState, 4, 4, meshes[nextPieceTrunk].obj<Trunk>(), fseconds());
         }
         tetris.collect();
+
+        BindLock<Program> programLock(program);
+        program.setUniform(U_GSAMPLER, 0);
+        program.setUniform(U_AMBIENT, 0.4f);
+        //program.setUniform(U_DIFF_DIRECTION, glm::vec3(0, 0, 1));
+        for (MeshWrapper& mesh : meshes) {
+            animate(mesh, dt);
+            draw(mesh, U_WORLD, U_MVP, vpMatrix, program);
+        }
+
+        if (tetris.getStats().gameOver) {
+            hudList.setLine(4, gameOverText);
+        }
+        hudList.draw(size);
+
+        window.swap();
     }
     return 0;
 }
