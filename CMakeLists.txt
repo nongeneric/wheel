@@ -5,7 +5,7 @@ set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "C:/mingw32/include/boost-1_54")
 set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "C:/mingw32/lib")
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost COMPONENTS log system filesystem thread chrono REQUIRED)
+find_package(Boost COMPONENTS system filesystem thread chrono REQUIRED)
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
 

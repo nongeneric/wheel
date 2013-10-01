@@ -2,8 +2,9 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <boost/log/trivial.hpp>
 #include <stdexcept>
+#include <iostream>
+#include <functional>
 
 std::string getGlInfoLog(
         std::function<void(GLuint, GLenum, GLint*)> param,
@@ -27,7 +28,7 @@ GLuint Program::createShader(const std::string &text, GLenum shaderType) {
     GLint status;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
     if (status == GL_FALSE) {
-        BOOST_LOG_TRIVIAL(error) << getGlInfoLog(glGetShaderiv, glGetShaderInfoLog, shader);
+        std::cout << getGlInfoLog(glGetShaderiv, glGetShaderInfoLog, shader);
         throw std::runtime_error("shader compilation failure");
     }
     return shader;
@@ -50,7 +51,7 @@ void Program::link() {
     GLint status;
     glGetProgramiv(_program, GL_LINK_STATUS, &status);
     if (status == GL_FALSE) {
-        BOOST_LOG_TRIVIAL(error) << getGlInfoLog(glGetProgramiv, glGetProgramInfoLog, _program);
+        std::cout << getGlInfoLog(glGetProgramiv, glGetProgramInfoLog, _program);
         throw std::runtime_error("program compilation failure");
     }
     for (GLuint shader : _shaders) {

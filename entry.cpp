@@ -15,7 +15,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <boost/chrono.hpp>
-#include <boost/log/trivial.hpp>
 
 #include <functional>
 #include <stdexcept>
@@ -25,7 +24,7 @@
 #include <assert.h>
 #include <map>
 
-#define SHADER_VERSION "#version 330\n"
+#define SHADER_VERSION "#version 140\n"
 
 namespace chrono = boost::chrono;
 using fseconds = chrono::duration<float>;
@@ -218,7 +217,7 @@ Mesh loadMesh() {
          aiProcess_Triangulate            |
          aiProcess_JoinIdenticalVertices);
     if (!scene) {
-        BOOST_LOG_TRIVIAL(error) << importer.GetErrorString();
+        std::cout << importer.GetErrorString();
         throw std::runtime_error("can't load a mesh");
     }
     assert(scene->HasMeshes());
@@ -401,9 +400,9 @@ std::string vertexShader =
         SHADER_VERSION
         "uniform mat4 mvp;\n"
         "uniform mat4 world;\n"
-        "layout(location = 0) in vec4 position;\n"
-        "layout(location = 1) in vec2 texCoord;\n"
-        "layout(location = 2) in vec3 normal;\n"
+        "in vec4 position;\n" // layout(location = 0)
+        "in vec2 texCoord;\n" // layout(location = 1)
+        "in vec3 normal;\n" // layout(location = 2)
         "out vec2 f_texCoord;\n"
         "out vec3 f_normal;\n"
         "void main() {\n"
@@ -485,8 +484,8 @@ Program createBitmapProgram() {
     Program res;
     res.addVertexShader(
         SHADER_VERSION
-        "layout(location = 0) in vec4 pos;\n"
-        "layout(location = 1) in vec2 uv;\n"
+        "in vec4 pos;\n" // layout(location = 0)
+        "in vec2 uv;\n" // layout(location = 1)
         "uniform mat4 transform;\n"
         "out vec2 f_uv;\n"
         "void main() {\n"
@@ -766,7 +765,7 @@ bool loadConfig(TetrisConfig& config) {
     try {
         config.load("config.xml");
     } catch (...) {
-        BOOST_LOG_TRIVIAL(error) << "an error ocurred while loading the config file";
+        std::cout << "an error ocurred while loading the config file";
         return false;
     }
     return true;

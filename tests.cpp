@@ -1,8 +1,8 @@
 #include "gtest/gtest.h"
 #include "Tetris.h"
 #include <functional>
+#include <iostream>
 #include "vformat.h"
-#include <boost/log/trivial.hpp>
 #include "rstd.h"
 
 int main(int argc, char **argv) {
@@ -33,12 +33,12 @@ bool exact(Tetris const& tetris, std::vector<std::vector<CellState>> grid) {
     for (int y = 0; y < TEST_DIMV; ++y) {
         for (int x = 0; x < TEST_DIMH; ++x) {
             if (tetris.getState(x, y).state != grid.at(y).at(x)) {
-                BOOST_LOG_TRIVIAL(error) << "was:";
-                BOOST_LOG_TRIVIAL(error) << prettyPrint([&](int x, int y) {
+                std::cout << "was:";
+                std::cout << prettyPrint([&](int x, int y) {
                     return tetris.getState(x, y).state;
                 }, TEST_DIMH, TEST_DIMV);
-                BOOST_LOG_TRIVIAL(error) << "expected:";
-                BOOST_LOG_TRIVIAL(error) << prettyPrint([&](int x, int y) {
+                std::cout << "expected:";
+                std::cout << prettyPrint([&](int x, int y) {
                     return grid.at(y).at(x);
                 }, TEST_DIMH, TEST_DIMV);
                 return false;
