@@ -805,6 +805,45 @@ glm::mat4 getProjection(glm::vec2 framebuffer, bool orthographic) {
     }
 }
 
+class CameraController {
+    Camera* _camera;
+    Keyboard _keys;
+    Window* _window;
+    bool _leftPressed;
+    bool _rightPressed;
+    bool _upPressed;
+    bool _downPressed;
+public:
+    CameraController(Window* window, Camera *camera)
+        : _camera(camera), _keys(window), _window(window)
+    {
+        _keys.onRepeat(GLFW_KEY_KP_4, fseconds(0.015f), [&]() {
+            _leftPressed = true;
+        });
+        _keys.onRepeat(GLFW_KEY_KP_6, fseconds(0.015f), [&]() {
+            _rightPressed = true;
+        });
+        _keys.onRepeat(GLFW_KEY_KP_8, fseconds(0.015f), [&]() {
+            _upPressed = true;
+        });
+        _keys.onRepeat(GLFW_KEY_KP_2, fseconds(0.015f), [&]() {
+            _downPressed = true;
+        });
+        _keys.onDown(GLFW_KEY_KP_5, [&]() {
+            _camera->reset();
+        });
+    }
+    void advance(fseconds dt) {
+        _leftPressed = false;
+        _rightPressed = false;
+        _upPressed = false;
+        _downPressed = false;
+        _keys.advance(dt);
+        _camera->updateKeyboard(_leftPressed, _rightPressed, _upPressed, _downPressed);
+        _camera->updateMouse(*_window);
+    }
+};
+
 int desktop_entry() {
     TetrisConfig config;
     if (!loadConfig(config)) {
@@ -816,6 +855,7 @@ int desktop_entry() {
     std::vector<MeshWrapper> meshes = genMeshes();
     Tetris tetris(g_TetrisHor, g_TetrisVert, Generator(), config.initialLevel);
     Camera camera;
+    CameraController camController(&window, &camera);
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -837,9 +877,39 @@ int desktop_entry() {
 
     FpsCounter fps;
     Keyboard keys(&window);
-    bool keysInit = false;
+    bool canManuallyMove;
+    bool normalStep;
     bool nextPiece = false;
     bool paused = false;
+    keys.onRepeat(GLFW_KEY_LEFT, fseconds(0.1f), [&]() {
+        if (canManuallyMove) {
+            tetris.moveLeft();
+        }
+    });
+    keys.onRepeat(GLFW_KEY_RIGHT, fseconds(0.1f), [&]() {
+        if (canManuallyMove) {
+            tetris.moveRight();
+        }
+    });
+    keys.onDown(GLFW_KEY_UP, [&]() {
+        if (canManuallyMove) {
+            tetris.rotate();
+        }
+    });
+    keys.onRepeat(GLFW_KEY_DOWN, fseconds(0.03f), [&]() {
+        if (!normalStep && canManuallyMove) {
+            nextPiece |= tetris.step();
+        }
+    });
+    keys.onDown(GLFW_KEY_ESCAPE, [&]() {
+        wait = fseconds();
+        hudList.setLine(4, "");
+        tetris.reset();
+    });
+    keys.onDown(GLFW_KEY_PAUSE, [&]() {
+        paused = !paused;
+    });
+
     while (!window.shouldClose()) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -869,8 +939,8 @@ int desktop_entry() {
 
         bool waiting = wait > fseconds();
 
-        bool canManuallyMove = !tetris.getStats().gameOver && !waiting && !paused;
-        bool normalStep = false;
+        canManuallyMove = !tetris.getStats().gameOver && !waiting && !paused;
+        normalStep = false;
         fseconds levelPenalty(speedCurve(tetris.getStats().level));
         if (elapsed > delay - levelPenalty && canManuallyMove) {
             normalStep = true;
@@ -879,61 +949,13 @@ int desktop_entry() {
             elapsed = fseconds();
         }
 
-        int leftPressed = 0, rightPressed = 0, upPressed = 0, downPressed = 0;
-        if (!keysInit) {
-            keys.onRepeat(GLFW_KEY_LEFT, fseconds(0.1f), [&]() {
-                if (canManuallyMove) {
-                    tetris.moveLeft();
-                }
-            });
-            keys.onRepeat(GLFW_KEY_RIGHT, fseconds(0.1f), [&]() {
-                if (canManuallyMove) {
-                    tetris.moveRight();
-                }
-            });
-            keys.onDown(GLFW_KEY_UP, [&]() {
-                if (canManuallyMove) {
-                    tetris.rotate();
-                }
-            });
-            keys.onRepeat(GLFW_KEY_DOWN, fseconds(0.03f), [&]() {
-                if (!normalStep && canManuallyMove) {
-                    nextPiece |= tetris.step();
-                }
-            });
-            keys.onRepeat(GLFW_KEY_KP_4, fseconds(0.015f), [&]() {
-                leftPressed = 1;
-            });
-            keys.onRepeat(GLFW_KEY_KP_6, fseconds(0.015f), [&]() {
-                rightPressed = 1;
-            });
-            keys.onRepeat(GLFW_KEY_KP_8, fseconds(0.015f), [&]() {
-                upPressed = 1;
-            });
-            keys.onRepeat(GLFW_KEY_KP_2, fseconds(0.015f), [&]() {
-                downPressed = 1;
-            });
-            keys.onDown(GLFW_KEY_KP_5, [&]() {
-                camera.reset();
-            });
-            keys.onDown(GLFW_KEY_ESCAPE, [&]() {
-                wait = fseconds();
-                hudList.setLine(4, "");
-                tetris.reset();
-            });
-            keys.onDown(GLFW_KEY_PAUSE, [&]() {
-                paused = !paused;
-            });
-            keysInit = true;
-        }
         keys.advance(dt);
 
         if (nextPiece) {
             keys.stopRepeats(GLFW_KEY_DOWN);
             nextPiece = false;
         }
-        camera.updateKeyboard(leftPressed, rightPressed, upPressed, downPressed);
-        camera.updateMouse(window);
+        camController.advance(dt);
 
         if (!waiting) {
             wait = copyState(tetris,
