@@ -665,13 +665,13 @@ public:
             item.invalidated = true;
         }
     }
+
     void draw(glm::vec2 frame) {
         if (_prevFrame != frame) {
             for (ListItem& item : _lines)
                 item.invalidated = true;
             _prevFrame = frame;
         }
-
         int i = 1;
         for (ListItem& item : _lines) {
             if (item.invalidated) {
@@ -771,6 +771,40 @@ bool loadConfig(TetrisConfig& config) {
     return true;
 }
 
+struct MainProgramInfo {
+    Program program;
+    GLuint U_MVP;
+    GLuint U_WORLD;
+    GLuint U_GSAMPLER;
+    GLuint U_AMBIENT;
+};
+
+MainProgramInfo createMainProgram() {
+    MainProgramInfo info;
+    Program& program = info.program;
+    program.addVertexShader(vertexShader);
+    program.addFragmentShader(fragmentShader);
+    program.link();
+    info.U_MVP = program.getUniformLocation("mvp");
+    info.U_WORLD = program.getUniformLocation("world");
+    info.U_GSAMPLER = program.getUniformLocation("gSampler");
+    info.U_AMBIENT = program.getUniformLocation("ambient");
+    //const GLuint U_DIFF_DIRECTION = program.getUniformLocation("diffDirection");
+    return info;
+}
+
+glm::mat4 getProjection(glm::vec2 framebuffer, bool orthographic) {
+    glViewport(0, 0, framebuffer.x, framebuffer.y);
+    float aspect = framebuffer.x / framebuffer.y;
+    if (orthographic) {
+        return glm::ortho(
+             -13.0f * aspect, 13.0f * aspect,
+             -13.0f, 13.0f, 1.0f, 1000.0f);
+    } else {
+        return glm::perspective(30.0f, framebuffer.x / framebuffer.y, 1.0f, 1000.0f);
+    }
+}
+
 int desktop_entry() {
     TetrisConfig config;
     if (!loadConfig(config)) {
@@ -778,18 +812,8 @@ int desktop_entry() {
     }
 
     Window window("wheel", config.fullScreen, config.screenWidth, config.screenHeight);
-    Program program;
-    program.addVertexShader(vertexShader);
-    program.addFragmentShader(fragmentShader);
-    program.link();
-    const GLuint U_MVP = program.getUniformLocation("mvp");
-    const GLuint U_WORLD = program.getUniformLocation("world");
-    const GLuint U_GSAMPLER = program.getUniformLocation("gSampler");
-    const GLuint U_AMBIENT = program.getUniformLocation("ambient");
-    //const GLuint U_DIFF_DIRECTION = program.getUniformLocation("diffDirection");
-
+    MainProgramInfo program = createMainProgram();
     std::vector<MeshWrapper> meshes = genMeshes();
-
     Tetris tetris(g_TetrisHor, g_TetrisVert, Generator(), config.initialLevel);
     Camera camera;
 
@@ -809,6 +833,8 @@ int desktop_entry() {
     std::string pauseText = "PAUSED";
     fseconds delay = fseconds(1.0f);
 
+    HudElem splash;
+
     FpsCounter fps;
     Keyboard keys(&window);
     bool keysInit = false;
@@ -816,9 +842,6 @@ int desktop_entry() {
     bool paused = false;
     while (!window.shouldClose()) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        glm::vec2 size = window.getFramebufferSize();
-        glViewport(0, 0, size.x, size.y);
 
         hudList.setLine(0, vformat("Lines: %d", tetris.getStats().lines));
         hudList.setLine(1, vformat("Score: %d", tetris.getStats().score));
@@ -828,16 +851,12 @@ int desktop_entry() {
         }
         hudList.setLine(5, paused ? pauseText : "");
 
-        float aspect = size.x / size.y;
-        glm::mat4 proj;
-        if (config.orthographic) {
-            proj = glm::ortho(
-                 -13.0f * aspect, 13.0f * aspect,
-                 -13.0f, 13.0f, 1.0f, 1000.0f);
-        } else {
-            proj = glm::perspective(30.0f, size.x / size.y, 1.0f, 1000.0f);
-        }
+        glm::vec2 framebuffer = window.getFramebufferSize();
+        glm::mat4 proj = getProjection(framebuffer, config.orthographic);
         glm::mat4 vpMatrix = proj * camera.view();
+
+        uint32_t green = 0xFF00FFFF;
+        splash.setBitmap(&green, 1, 1, 0, 1, framebuffer.x, framebuffer.y);
 
         auto now = chrono::high_resolution_clock::now();
         fseconds dt = chrono::duration_cast<fseconds>(now - past);
@@ -927,19 +946,20 @@ int desktop_entry() {
         }
         tetris.collect();
 
-        BindLock<Program> programLock(program);
-        program.setUniform(U_GSAMPLER, 0);
-        program.setUniform(U_AMBIENT, 0.4f);
+        BindLock<Program> programLock(program.program);
+        program.program.setUniform(program.U_GSAMPLER, 0);
+        program.program.setUniform(program.U_AMBIENT, 0.4f);
         //program.setUniform(U_DIFF_DIRECTION, glm::vec3(0, 0, 1));
         for (MeshWrapper& mesh : meshes) {
             animate(mesh, dt);
-            draw(mesh, U_WORLD, U_MVP, vpMatrix, program);
+            draw(mesh, program.U_WORLD, program.U_MVP, vpMatrix, program.program);
         }
 
         if (tetris.getStats().gameOver) {
             hudList.setLine(4, gameOverText);
         }
-        hudList.draw(size);
+        hudList.draw(framebuffer);
+        splash.draw();
 
         window.swap();
     }

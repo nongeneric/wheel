@@ -48,6 +48,7 @@ set(LINUX_LIB_DEPS
     Xrandr
     Xi
     pthread
+    bz2
 )
 
 set(LIBS ${LINUX_LIB_DEPS})
@@ -65,7 +66,7 @@ target_link_libraries(${PROJECT_NAME}
     assimp
     freetype
     freeimage
-    ${LIBS}
+    ${LIBS}    
     ${Boost_LIBRARIES}
 )
 
