@@ -68,24 +68,36 @@ GLuint Program::getUniformLocation(const std::string &name) {
     return loc;
 }
 
-void Program::setUniform(GLuint location, const glm::mat4 &matrix) {
-    glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
+void checkUniformError() {
     GLenum error = glGetError();
     if (error != GL_NO_ERROR && error != GL_INVALID_ENUM ) {
         throw std::runtime_error("uniform set error");
     }
 }
 
-void Program::setUniform(GLuint location, const glm::vec3 &matrix) {
-    glUniform3fv(location, 3, glm::value_ptr(matrix));
+void Program::setUniform(GLuint location, const glm::mat4 &matrix) {
+    glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
+    checkUniformError();
+}
+
+void Program::setUniform(GLuint location, const glm::vec3 &vec) {
+    glUniform3fv(location, 1, glm::value_ptr(vec));
+    checkUniformError();
+}
+
+void Program::setUniform(GLuint location, const glm::vec4 &vec) {
+    glUniform4fv(location, 1, glm::value_ptr(vec));
+    checkUniformError();
 }
 
 void Program::setUniform(GLuint location, GLint value) {
     glUniform1i(location, value);
+    checkUniformError();
 }
 
 void Program::setUniform(GLuint location, GLfloat value) {
     glUniform1f(location, value);
+    checkUniformError();
 }
 
 void Program::bind() {

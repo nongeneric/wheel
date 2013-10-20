@@ -4,6 +4,7 @@
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
 
+#include <boost/locale.hpp>
 #include <assert.h>
 #include <map>
 
@@ -30,6 +31,10 @@ struct CacheEntry {
 
 std::shared_ptr<FIBITMAP> make_bitmap_ptr(FIBITMAP* raw) {
     return std::shared_ptr<FIBITMAP>(raw, FreeImage_Unload);
+}
+
+std::u32string tou32str(std::string utf8) {
+    return boost::locale::conv::utf_to_utf<char32_t>(utf8);
 }
 
 class Text::impl {
@@ -70,7 +75,8 @@ public:
         assert(_fbitmap.get());
     }
 
-    BitmapPtr renderText(std::string str, unsigned pxHeight) {
+    BitmapPtr renderText(std::string utf8str, unsigned pxHeight) {
+        auto str = tou32str(utf8str);
         if (!freeTypeInit) {
             auto error = FT_Init_FreeType(&library);
             assert(!error);

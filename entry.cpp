@@ -16,6 +16,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <boost/chrono.hpp>
 
+#include "rstd.h"
 #include <functional>
 #include <stdexcept>
 #include <string>
@@ -23,6 +24,7 @@
 #include <memory>
 #include <assert.h>
 #include <map>
+#include <stack>
 
 #define SHADER_VERSION "#version 140\n"
 
@@ -398,42 +400,42 @@ public:
 
 std::string vertexShader =
         SHADER_VERSION
-        "uniform mat4 mvp;\n"
-        "uniform mat4 world;\n"
-        "in vec4 position;\n" // layout(location = 0)
-        "in vec2 texCoord;\n" // layout(location = 1)
-        "in vec3 normal;\n" // layout(location = 2)
-        "out vec2 f_texCoord;\n"
-        "out vec3 f_normal;\n"
-        "void main() {\n"
-        "    gl_Position = mvp * position;\n"
-        "    f_texCoord = texCoord;\n"
-        "    f_normal = (world * vec4(normal, 0.0)).xyz;\n"
-        "}\n"
+        "uniform mat4 mvp;"
+        "uniform mat4 world;"
+        "in vec4 position;" // layout(location = 0)
+        "in vec2 texCoord;" // layout(location = 1)
+        "in vec3 normal;" // layout(location = 2)
+        "out vec2 f_texCoord;"
+        "out vec3 f_normal;"
+        "void main() {"
+        "    gl_Position = mvp * position;"
+        "    f_texCoord = texCoord;"
+        "    f_normal = (world * vec4(normal, 0.0)).xyz;"
+        "}"
         ;
 
 std::string fragmentShader =
         SHADER_VERSION
-        "in vec2 f_texCoord;\n"
-        "in vec3 f_normal;\n"
-        "out vec4 outputColor;\n"
-        "uniform sampler2D gSampler;\n"
-        "uniform float ambient;\n"
+        "in vec2 f_texCoord;"
+        "in vec3 f_normal;"
+        "out vec4 outputColor;"
+        "uniform sampler2D gSampler;"
+        "uniform float ambient;"
         // white color
-        "vec4 getDiffuseFactor(vec3 direction, vec4 baseColor) {\n"
-        "   float factor = dot(normalize(f_normal), -direction);\n"
-        "   vec4 color;\n"
-        "   if (factor > 0) {\n"
-        "       color = baseColor * factor;\n"
-        "   } else {\n"
-        "       color = vec4(0.0, 0.0, 0.0, 0.0);\n"
-        "   }\n"
-        "   return color;\n"
-        "}\n"
-        "void main() {\n"
-        "   vec4 source1 = getDiffuseFactor(vec3(-1.0, 0.0, -1.0), vec4(1,1,1,0.6));\n"
-        "   vec4 source2 = getDiffuseFactor(vec3(1.0, 0.0, 1.0), vec4(1,0,0,0.4));\n"
-        "   outputColor = texture2D(gSampler, f_texCoord.st) * (ambient + source1 + source2);\n"
+        "vec4 getDiffuseFactor(vec3 direction, vec4 baseColor) {"
+        "   float factor = dot(normalize(f_normal), -direction);"
+        "   vec4 color;"
+        "   if (factor > 0) {"
+        "       color = baseColor * factor;"
+        "   } else {"
+        "       color = vec4(0.0, 0.0, 0.0, 0.0);"
+        "   }"
+        "   return color;"
+        "}"
+        "void main() {"
+        "   vec4 source1 = getDiffuseFactor(vec3(-1.0, 0.0, -1.0), vec4(1,1,1,0.6));"
+        "   vec4 source2 = getDiffuseFactor(vec3(1.0, 0.0, 1.0), vec4(1,0,0,0.4));"
+        "   outputColor = texture2D(gSampler, f_texCoord.st) * (ambient + source1 + source2);"
         "}"
         ;
 
@@ -484,29 +486,45 @@ Program createBitmapProgram() {
     Program res;
     res.addVertexShader(
         SHADER_VERSION
-        "in vec4 pos;\n" // layout(location = 0)
-        "in vec2 uv;\n" // layout(location = 1)
-        "uniform mat4 transform;\n"
-        "out vec2 f_uv;\n"
-        "void main() {\n"
-        "    gl_Position = transform * pos;\n"
-        "    f_uv = uv;\n"
-        "}\n"
+        "in vec4 pos;" // layout(location = 0)
+        "in vec2 uv;" // layout(location = 1)
+        "uniform mat4 transform;"
+        "out vec2 f_uv;"
+        "void main() {"
+        "    gl_Position = transform * pos;"
+        "    f_uv = uv;"
+        "}"
     );
     res.addFragmentShader(
         SHADER_VERSION
-        "in vec2 f_uv;\n"
-        "uniform sampler2D sampler;\n"
-        "out vec4 outputColor;\n"
-        "void main() {\n"
-        "   outputColor = texture2D(sampler, f_uv);\n"
+        "in vec2 f_uv;"
+        "uniform sampler2D sampler;"
+        "uniform vec3 color;"
+        "out vec4 outputColor;"
+        "void main() {"
+        "   outputColor = vec4(color,texture2D(sampler, f_uv).a);"
         "}"
     );
     res.link();
     return res;
 }
 
-class HudElem {
+VertexBuffer createFullScreenVertices() {
+    return VertexBuffer {{
+        {glm::vec3 { -1, -1, 0 }, glm::vec2 { 0, 0 }},
+        {glm::vec3 { 1, -1, 0 }, glm::vec2 { 1, 0 }},
+        {glm::vec3 { -1, 1, 0.}, glm::vec2 { 0, 1 }},
+        {glm::vec3 { 1, 1, 0 }, glm::vec2 { 1, 1 }}
+    }};
+}
+
+IndexBuffer createFullScreenIndices() {
+    return IndexBuffer{{
+        0, 1, 3, 0, 2, 3
+    }};
+}
+
+class CrispBitmap {
     Texture _tex;
     VAO _vao;
     VertexBuffer _vertices;
@@ -514,20 +532,12 @@ class HudElem {
     Program _program;
     GLuint _sampler;
     GLuint _transformUniform;
+    GLuint _colorUniform;
     glm::mat4 _transform;
-    VertexBuffer getVertices() {
-        return VertexBuffer {{
-            {glm::vec3 { -1, -1, 0.5 }, glm::vec2 { 0, 0 }},
-            {glm::vec3 { 1, -1, 0.5 }, glm::vec2 { 1, 0 }},
-            {glm::vec3 { -1, 1, 0.5 }, glm::vec2 { 0, 1 }},
-            {glm::vec3 { 1, 1, 0.5 }, glm::vec2 { 1, 1 }}
-        }};
-    }
-    IndexBuffer getIndices() {
-        return IndexBuffer{{
-            0, 1, 3, 0, 2, 3
-        }};
-    }
+    long _width;
+    long _height;
+    glm::vec2 _framebuffer;
+    glm::vec3 _color;
     void initVao() {
         BindLock<VAO> lock(_vao);
         _vertices.bind();
@@ -539,31 +549,46 @@ class HudElem {
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)12);
     }
 public:
-    HudElem() : _vertices(getVertices()),
-                _indices(getIndices()),
+    CrispBitmap() : _vertices(createFullScreenVertices()),
+                _indices(createFullScreenIndices()),
                 _program(createBitmapProgram())
     {
         _sampler = _program.getUniformLocation("sampler");
         _transformUniform = _program.getUniformLocation("transform");
+        _colorUniform = _program.getUniformLocation("color");
+        _color = glm::vec3 { 1.0f, 1.0f, 1.0f};
         initVao();
     }
-    void setBitmap(void* buffer, unsigned width, unsigned height, unsigned x, unsigned y, unsigned portX, unsigned portY) {
-        _tex.setImage(buffer, width, height);
-        float normWidth = (float)width / portX;
-        float normHeight = (float)height / portY;
+
+    void setBitmap(FIBITMAP* bitmap, glm::vec2 framebuffer) {
+        _framebuffer = framebuffer;
+        _width = FreeImage_GetWidth(bitmap);
+        _height = FreeImage_GetHeight(bitmap);
+        _tex.setImage(FreeImage_GetBits(bitmap), _width, _height);
+    }
+
+    void setPos(float x, float y) {
+        float normWidth = (float)_width / _framebuffer.x;
+        float normHeight = (float)_height / _framebuffer.y;
         auto scale = glm::scale( {}, glm::vec3 {normWidth, normHeight, 1});
-        float normDx = (float)x / portX * 2;
-        float normDy = (float)y / portY * 2;
+        float normDx = x / _framebuffer.x * 2;
+        float normDy = y / _framebuffer.y * 2;
         auto translate = glm::translate( {}, glm::vec3 {normDx + normWidth - 1, normDy + normHeight - 1, 0});
         _transform = translate * scale;
     }
+
     void draw() {
         BindLock<Program> programLock(_program);
         _program.setUniform(_sampler, 0);
         _program.setUniform(_transformUniform, _transform);
+        _program.setUniform(_colorUniform, _color);
         BindLock<Texture> texLock(_tex);
         BindLock<VAO> vaoLock(_vao);
         glDrawElements(GL_TRIANGLES, _indices.size(), GL_UNSIGNED_SHORT, 0);
+    }
+
+    void setColor(glm::vec3 color) {
+        _color = color;
     }
 };
 
@@ -634,60 +659,97 @@ public:
     }
 };
 
-void drawText(std::string str, Text& text, HudElem& elem, unsigned x, unsigned y, glm::vec2 framebuffer) {
-    auto bitmap = text.renderText(str, framebuffer.y * 0.05);
-    unsigned height = FreeImage_GetHeight(bitmap.get());
-    elem.setBitmap(
-        FreeImage_GetBits(bitmap.get()),
-        FreeImage_GetWidth(bitmap.get()),
-        height,
-        x, y, framebuffer.x, framebuffer.y
-    );
-}
-
-class HudList {
-    struct ListItem {
-        std::string prevText;
-        std::string text;
-        bool invalidated = false;
-        HudElem elem;
-    };
-    glm::vec2 _prevFrame;
-    std::vector<ListItem> _lines;
+class TextLine {
     Text* _text;
-public:
-    HudList(int lines, Text* text) : _lines(lines), _text(text) { }
-    void setLine(int i, std::string text) {
-        ListItem& item = _lines.at(i);
-        if (item.text != text) {
-            item.prevText = item.text;
-            item.text = text;
-            item.invalidated = true;
+    CrispBitmap _elem;
+    std::string _line;
+    float _height;
+    glm::vec2 _framebuffer;
+    bool _lineChanged = false;
+    bool _framebufferChanged = false;
+    float _posX;
+    float _posY;
+    BitmapPtr _bitmap;
+
+    void redrawText() {
+        if (_lineChanged || _framebufferChanged) {
+            _lineChanged = false;
+            _framebufferChanged = false;
+            _bitmap = _text->renderText(_line, _height * _framebuffer.y);
+            _elem.setBitmap(_bitmap.get(), _framebuffer);
+            _elem.setPos(_posX, _posY);
         }
     }
 
-    void draw(glm::vec2 frame) {
-        if (_prevFrame != frame) {
-            for (ListItem& item : _lines)
-                item.invalidated = true;
-            _prevFrame = frame;
+public:
+    TextLine(Text* text, float height) {
+        _height = height;
+        _text = text;
+    }
+
+    void setPos(float x, float y) {
+        _posX = x;
+        _posY = y;
+        _elem.setPos(x, y);
+    }
+
+    void setFramebuffer(glm::vec2 framebuffer) {
+        if (_framebuffer == framebuffer)
+            return;
+        _framebufferChanged = true;
+        _framebuffer = framebuffer;
+    }
+
+    void set(std::string line) {
+        if (line == _line)
+            return;
+        _lineChanged = true;
+        _line = line;
+    }
+
+    glm::vec2 size() {
+        redrawText();
+        return glm::vec2 {
+            FreeImage_GetWidth(_bitmap.get()),
+            FreeImage_GetHeight(_bitmap.get())
+        };
+    }
+
+    void draw() {
+        redrawText();
+        _elem.draw();
+    }
+
+    void setColor(glm::vec3 color) {
+        _elem.setColor(color);
+    }
+};
+
+class HudList {
+    std::vector<TextLine> _lines;
+    Text* _text;
+    glm::vec2 _framebuffer;
+public:
+    HudList(int lines, Text* text) : _text(text) {
+        for (int i = 0; i < lines; ++i) {
+            _lines.emplace_back(text, 0.05);
         }
-        int i = 1;
-        for (ListItem& item : _lines) {
-            if (item.invalidated) {
-                auto bitmap = _text->renderText(item.text, frame.y * 0.05);
-                unsigned height = FreeImage_GetHeight(bitmap.get());
-                item.elem.setBitmap(
-                    FreeImage_GetBits(bitmap.get()),
-                    FreeImage_GetWidth(bitmap.get()),
-                    height,
-                    0,
-                    frame.y - (height + 0.01 * frame.y) * i, frame.x, frame.y
-                );
-                item.invalidated = false;
-            }
-            i++;
-            item.elem.draw();
+    }
+
+    void setLine(int i, std::string text) {
+        _lines[i].set(text);
+        _lines[i].setPos(0, _framebuffer.y * (1.0f - (i + 1) * 0.07));
+    }
+
+    void setFramebuffer(glm::vec2 framebuffer) {
+        _framebuffer = framebuffer;
+        for (auto& line : _lines)
+            line.setFramebuffer(framebuffer);
+    }
+
+    void draw() {
+        for (TextLine& line : _lines) {
+            line.draw();
         }
     }
 };
@@ -695,7 +757,7 @@ public:
 float speedCurve(int level) {
     if (level <= 15)
         return 0.05333f * level;
-    return 0.6125f + 0.0125f * level;
+    return 0.65f + 0.01f * level;
 }
 
 class Generator {
@@ -844,6 +906,393 @@ public:
     }
 };
 
+Program createPainterProgram() {
+    Program res;
+    res.addVertexShader(
+        SHADER_VERSION
+        "in vec4 pos;\n" // layout(location = 0)
+        "uniform mat4 transform;\n"
+        "uniform vec4 color;\n"
+        "out vec4 f_color;\n"
+        "void main() {\n"
+        "    gl_Position = transform * pos;\n"
+        "    f_color = color;\n"
+        "}"
+    );
+    res.addFragmentShader(
+        SHADER_VERSION
+        "in vec4 f_color;"
+        "out vec4 outputColor;"
+        "void main() {"
+        "   outputColor = f_color;"
+        "}"
+    );
+    res.link();
+    return res;
+}
+
+class Painter2D {
+    Program _program;
+    VAO _vao;
+    VertexBuffer _vertices;
+    IndexBuffer _indices;
+    std::vector<std::tuple<glm::vec2, glm::vec2, glm::vec4>> _rects;
+    GLuint _uTransform;
+    GLuint _uColor;
+    void initVao() {
+        BindLock<VAO> lock(_vao);
+        _vertices.bind();
+        _indices.bind();
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)12); // not used
+    }
+public:
+    Painter2D()
+        : _program{createPainterProgram()},
+          _vertices{createFullScreenVertices()},
+          _indices{createFullScreenIndices()}
+    {
+        initVao();
+        _uTransform = _program.getUniformLocation("transform");
+        _uColor = _program.getUniformLocation("color");
+    }
+    void rect(glm::vec2 pos, glm::vec2 size, glm::vec4 color) {
+        _rects.emplace_back(pos * 2.0f, size, color);
+    }
+    void draw() {
+        BindLock<Program> programLock(_program);
+        BindLock<VAO> vaoLock(_vao);
+        for (auto const& rect : _rects) {
+            auto scale = glm::scale( {}, glm::vec3 { std::get<1>(rect).x, std::get<1>(rect).y, 1 });
+            auto pos = std::get<0>(rect) + std::get<1>(rect) - 1.0f;
+            auto translate = glm::translate( {}, glm::vec3 { pos.x, pos.y, 0 } );
+            _program.setUniform(_uTransform, translate * scale);
+            _program.setUniform(_uColor, std::get<2>(rect));
+            glDrawElements(GL_TRIANGLES, _indices.size(), GL_UNSIGNED_SHORT, 0);
+        }
+    }
+};
+
+template<typename T, typename R>
+std::vector<R> fmap(std::vector<T> const& a, std::function<R(const T&)> f) {
+    std::vector<R> res;
+    for (const T& t : a) {
+        res.push_back(f(t));
+    }
+    return res;
+}
+
+class MenuLeaf {
+    std::vector<std::string> _values;
+    std::string _value;
+    TextLine _line;    
+    std::string _lineText;
+public:
+    MenuLeaf(Text* textCache, std::vector<std::string> values, std::string line)
+        : _values(values), _line(textCache, 0.06f), _lineText(line)
+    {
+        _line.set(line);
+    }
+    void setFramebuffer(glm::vec2 framebuffer) {
+        _line.setFramebuffer(framebuffer);
+    }
+    void setPos(glm::vec2 pos) {
+        _line.setPos(pos.x, pos.y);
+    }
+    glm::vec2 size() {
+        return _line.size();
+    }
+    void draw() {
+        _line.draw();
+    }
+    void setValue(std::string value) {
+        _value = value;
+        _line.set(_lineText + ": " + value);
+    }
+
+    std::vector<std::string> const& values() const {
+        return _values;
+    }
+
+    std::string value() const {
+        return _value;
+    }
+
+    void highlight(bool on) {
+        if (on) {
+            _line.setColor(glm::vec3 { 1.0f, 1.0f, 1.0f});
+        } else {
+            _line.setColor(glm::vec3 { 0.7f, 0.7f, 0.7f});
+        }
+    }
+};
+
+class Menu {
+    struct LeafPos {
+        glm::vec2 left;
+        glm::vec2 center;
+        glm::vec2 right;
+    };
+
+    static constexpr float _lineHeight = 1.2f;
+
+    std::vector<std::unique_ptr<MenuLeaf>> _leafs;
+    std::string _text;
+    Text* _textCache;
+    glm::vec2 _pos;
+    Menu* _parent = nullptr;
+    std::vector<LeafPos> _leafPositions;
+    glm::vec2 _framebuffer;
+    bool _animating = false;
+    fseconds _elapsed;
+    bool _isAssembling;
+    glm::vec2 _size;
+
+    float width() {
+        float width = 0;
+        for (auto const& leaf : _leafs) {
+            width = std::max(width, leaf->size().x);
+        }
+        return width;
+    }
+
+    void calcPositions() {
+        _leafPositions.clear();
+        float x = _pos.x;
+        float y = _pos.y;
+        float width = this->width();
+        for (auto it = _leafs.rbegin(); it != _leafs.rend(); ++it) {
+            auto size = (*it)->size();
+            glm::vec2 center { x + (width - size.x) / 2, y };
+            glm::vec2 left { 0, y };
+            glm::vec2 right { (_framebuffer - size).x, y};
+            _leafPositions.insert(begin(_leafPositions), {left, center, right});            
+            y += size.y * _lineHeight;
+        }
+        _size = glm::vec2 { width, y - _pos.y };
+    }
+
+public:
+    Menu(Text* textCache) : _textCache(textCache) { }
+
+    void animate(bool assemble) {
+        _animating = assemble;
+        _elapsed = fseconds();
+        _isAssembling = assemble;
+    }
+
+    MenuLeaf* addLeaf(std::string text,
+                      std::vector<std::string> values)
+    {
+        _leafs.emplace_back(new MenuLeaf(_textCache, values, text));
+        return _leafs.back().get();
+    }
+
+    std::vector<MenuLeaf*> leafs() {
+        return fmap<std::unique_ptr<MenuLeaf>, MenuLeaf*>(_leafs, [](const std::unique_ptr<MenuLeaf>& ptr) { return ptr.get(); });
+    }
+
+    Menu* parent() {
+        return _parent;
+    }
+
+    void setPos(glm::vec2 pos) {
+        _pos = pos;
+        calcPositions();        
+    }
+
+    void setFramebuffer(glm::vec2 framebuffer) {
+        _framebuffer = framebuffer;
+        for (auto const& leaf : _leafs) {
+            leaf->setFramebuffer(framebuffer);
+        }
+    }
+
+    glm::vec2 size() {
+        return _size;
+    }
+
+    float animCurve(float a, float b, float ratio) {
+        return a + ratio * ratio * ratio * ratio * (b - a);
+    }
+
+    void advance(fseconds dt) {        
+        if (!_animating)
+            return;
+        fseconds duration(0.4f);
+        if (_elapsed > duration) {
+            _animating = false;
+            return;
+        }        
+        _elapsed += dt;
+        float ratio = std::min(_elapsed.count() / duration.count(), 1.0f);
+        ratio = _isAssembling ? 1.0f - ratio : ratio;
+        for (unsigned i = 0; i < _leafs.size(); ++i) {
+            if (i & 1) {
+                _leafs[i]->setPos( glm::vec2 {
+                    animCurve(_leafPositions[i].center.x, _leafPositions[i].right.x, ratio),
+                    _leafPositions[i].center.y });
+            } else {
+                _leafs[i]->setPos( glm::vec2 {
+                    animCurve(_leafPositions[i].center.x, _leafPositions[i].left.x, ratio),
+                    _leafPositions[i].center.y });
+            }
+        }
+    }
+
+    void draw() {
+        for (auto const& leaf : _leafs) {
+            leaf->draw();
+        }
+    }
+};
+
+class MenuController {
+    std::map<MenuLeaf*, std::function<void()>> _handlers;
+    Menu* _menu;
+    MenuLeaf *_leaf;
+    Keyboard _keys;
+    std::stack<Menu*> _history;
+
+    void advanceFocus(int delta) {
+        _leaf->highlight(false);
+        auto leafs = _menu->leafs();
+        auto it = std::find(begin(leafs), end(leafs), _leaf);
+        assert(it != end(leafs));
+        unsigned index = std::distance(begin(leafs), it);
+        index = (index + leafs.size() + delta) % leafs.size();
+        _leaf = leafs[index];
+        _leaf->highlight(true);
+    }
+
+    void clearHighlights() {
+        for (auto& leaf : _menu->leafs()) {
+            leaf->highlight(false);
+        }
+        _leaf->highlight(true);
+    }
+
+    void advanceValue(int delta, MenuLeaf* leaf) {
+        auto const& values = leaf->values();
+        auto it = std::find(begin(values), end(values), _leaf->value());
+        assert(it != end(values));
+        unsigned index = std::distance(begin(values), it);
+        index = (index + values.size() + delta) % values.size();
+        leaf->setValue(values[index]);
+        assert(_handlers.find(_leaf) != end(_handlers));
+        _handlers[_leaf]();
+    }
+
+public:
+    MenuController(Menu* menu, Window* window)
+        : _menu(menu), _keys(window)
+    {        
+        setActiveMenu(menu);
+        clearHighlights();
+        _keys.onDown(GLFW_KEY_DOWN, [&]() {
+            advanceFocus(1);
+        });
+        _keys.onDown(GLFW_KEY_UP, [&]() {
+            advanceFocus(-1);
+        });
+        _keys.onDown(GLFW_KEY_ENTER, [&]() {
+            if (_leaf->values().empty()) {
+                assert(_handlers.find(_leaf) != end(_handlers));
+                _handlers[_leaf]();
+            }
+        });
+        _keys.onDown(GLFW_KEY_ESCAPE, [&]() {
+            if (_history.size() > 0) {
+                setActiveMenu(_history.top(), false);
+                _history.pop();
+            } else {
+                _handlers[nullptr]();
+            }
+        });
+        _keys.onRepeat(GLFW_KEY_LEFT, fseconds(0.15f), [&]() {
+            if (_leaf->values().empty())
+                return;
+            advanceValue(-1, _leaf);
+        });
+        _keys.onRepeat(GLFW_KEY_RIGHT, fseconds(0.15f), [&]() {
+            if (_leaf->values().empty())
+                return;
+            advanceValue(1, _leaf);
+        });
+    }
+
+    void onValueChanged(MenuLeaf* leaf, std::function<void()> handler) {
+        _handlers[leaf] = handler;
+    }
+
+    void advance(fseconds dt) {
+        _keys.advance(dt);
+        _menu->advance(dt);
+    }
+
+    void setActiveMenu(Menu* menu, bool saveState = true) {
+        if (saveState)
+            _history.push(_menu);
+        _menu = menu;
+        _leaf = menu->leafs().front();
+        clearHighlights();
+        _menu->animate(true);
+    }
+
+    void draw() {
+        _menu->draw();
+    }
+
+    void show(bool on) {
+        clearHighlights();
+        _leaf = _menu->leafs().front();
+        _menu->animate(on);
+        advance(fseconds());
+    }
+};
+
+struct MainMenuStructure {
+    MenuLeaf* resume;
+    MenuLeaf* restart;
+    MenuLeaf* options;
+    MenuLeaf* hallOfFame;
+    MenuLeaf* exit;
+};
+
+MainMenuStructure initMainMenu(Menu& menu) {
+    MainMenuStructure res;
+    res.resume = menu.addLeaf("Resume", {});
+    res.restart = menu.addLeaf("Restart", {});
+    res.options = menu.addLeaf("Options", {});
+    res.hallOfFame = menu.addLeaf("Hall of fame", {});
+    res.exit = menu.addLeaf("Exit", {});
+    return res;
+}
+
+struct OptionsMenuStructure {
+    MenuLeaf* initialSpeed;
+    MenuLeaf* fullscreen;
+    MenuLeaf* resolution;
+};
+
+std::vector<std::string> genNumbers(int count) {
+    std::vector<std::string> res;
+    for (int i = 0; i < count; ++i)
+        res.push_back(vformat("%d", i));
+    return res;
+}
+
+OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig config) {
+    OptionsMenuStructure res;
+    int speed = std::min(config.initialLevel, 19u);
+    (res.initialSpeed = menu.addLeaf("Initial speed", genNumbers(20)))->setValue(vformat("%d", speed));
+    (res.fullscreen = menu.addLeaf("Fullscreen", {"On", "Off"}))->setValue(config.fullScreen ? "On" : "Off");
+    (res.resolution = menu.addLeaf("Resolution", {"1920x1080"}))->setValue("1920x1080");
+    return res;
+}
+
 int desktop_entry() {
     TetrisConfig config;
     if (!loadConfig(config)) {
@@ -866,14 +1315,20 @@ int desktop_entry() {
     fseconds wait;
 
     Text text;
-    HudElem hudGameOver;
+    CrispBitmap hudGameOver;
 
-    HudList hudList(6, &text);
+    HudList hudList(5, &text);
     std::string gameOverText = "Game Over!";
     std::string pauseText = "PAUSED";
     fseconds delay = fseconds(1.0f);
 
-    HudElem splash;
+    Painter2D p2d;
+    p2d.rect(glm::vec2 { 0, 0 }, glm::vec2 { 1.0f, 1.0f }, glm::vec4 {0, 0, 0, 0.6});
+    //p2d.rect(glm::vec2 { 0, 0.45f }, glm::vec2 { 0.3f, 0.1f }, glm::vec4 {0.5, 0.5, 0.5, 0.5});
+
+    Menu mainMenu(&text), optionsMenu(&text);
+    MainMenuStructure mainMenuStructure = initMainMenu(mainMenu);
+    OptionsMenuStructure optionsMenuStructure = initOptionsMenu(optionsMenu, config);
 
     FpsCounter fps;
     Keyboard keys(&window);
@@ -881,12 +1336,14 @@ int desktop_entry() {
     bool normalStep;
     bool nextPiece = false;
     bool paused = false;
-    keys.onRepeat(GLFW_KEY_LEFT, fseconds(0.1f), [&]() {
+    bool exit = false;
+    MenuController menu(&mainMenu, &window);
+    keys.onRepeat(GLFW_KEY_LEFT, fseconds(0.07f), [&]() {
         if (canManuallyMove) {
             tetris.moveLeft();
         }
     });
-    keys.onRepeat(GLFW_KEY_RIGHT, fseconds(0.1f), [&]() {
+    keys.onRepeat(GLFW_KEY_RIGHT, fseconds(0.07f), [&]() {
         if (canManuallyMove) {
             tetris.moveRight();
         }
@@ -902,35 +1359,57 @@ int desktop_entry() {
         }
     });
     keys.onDown(GLFW_KEY_ESCAPE, [&]() {
+        paused = true;
+        menu.show(true);
+    });
+
+    menu.onValueChanged(mainMenuStructure.resume, [&]() {
+        paused = false;
+    });
+    menu.onValueChanged(mainMenuStructure.restart, [&]() {
         wait = fseconds();
         hudList.setLine(4, "");
         tetris.reset();
+        paused = false;
     });
-    keys.onDown(GLFW_KEY_PAUSE, [&]() {
-        paused = !paused;
+    menu.onValueChanged(mainMenuStructure.options, [&]() {
+        menu.setActiveMenu(&optionsMenu);
     });
+    menu.onValueChanged(mainMenuStructure.exit, [&]() {
+        exit = true;
+    });
+    menu.onValueChanged(nullptr, [&]() {
+        paused = false;
+    });
+    auto empty = [](){};
+    menu.onValueChanged(optionsMenuStructure.fullscreen, empty);
+    menu.onValueChanged(optionsMenuStructure.initialSpeed, empty);
+    menu.onValueChanged(optionsMenuStructure.resolution, empty);
 
     while (!window.shouldClose()) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         hudList.setLine(0, vformat("Lines: %d", tetris.getStats().lines));
         hudList.setLine(1, vformat("Score: %d", tetris.getStats().score));
-        hudList.setLine(2, vformat("Level: %d", tetris.getStats().level));
+        hudList.setLine(2, vformat(u8"Уровень: %d", tetris.getStats().level));
         if (config.showFps) {
             hudList.setLine(3, vformat("FPS: %d", fps.fps()));
         }
-        hudList.setLine(5, paused ? pauseText : "");
 
         glm::vec2 framebuffer = window.getFramebufferSize();
         glm::mat4 proj = getProjection(framebuffer, config.orthographic);
         glm::mat4 vpMatrix = proj * camera.view();
 
-        uint32_t green = 0xFF00FFFF;
-        splash.setBitmap(&green, 1, 1, 0, 1, framebuffer.x, framebuffer.y);
+        hudList.setFramebuffer(framebuffer);
+        mainMenu.setFramebuffer(framebuffer);
+        mainMenu.setPos((framebuffer - mainMenu.size()) * 0.5f);
+        optionsMenu.setFramebuffer(framebuffer);
+        optionsMenu.setPos((framebuffer - optionsMenu.size()) * 0.5f);
 
         auto now = chrono::high_resolution_clock::now();
         fseconds dt = chrono::duration_cast<fseconds>(now - past);
         fps.advance(dt);
+        fseconds realDt = dt;
         if (paused)
             dt = fseconds();
         wait -= dt;
@@ -949,13 +1428,17 @@ int desktop_entry() {
             elapsed = fseconds();
         }
 
-        keys.advance(dt);
+        if (paused) {
+            menu.advance(realDt);
+        } else {
+            keys.advance(dt);
+        }
+        camController.advance(dt);
 
         if (nextPiece) {
             keys.stopRepeats(GLFW_KEY_DOWN);
             nextPiece = false;
-        }
-        camController.advance(dt);
+        }        
 
         if (!waiting) {
             wait = copyState(tetris,
@@ -979,11 +1462,20 @@ int desktop_entry() {
 
         if (tetris.getStats().gameOver) {
             hudList.setLine(4, gameOverText);
+        }        
+
+        glDisable(GL_DEPTH_TEST);
+        hudList.draw();
+        if (paused) {
+            p2d.draw();
+            menu.draw();
         }
-        hudList.draw(framebuffer);
-        splash.draw();
+        glEnable(GL_DEPTH_TEST);
 
         window.swap();
+
+        if (exit)
+            return 0;
     }
     return 0;
 }

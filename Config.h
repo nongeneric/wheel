@@ -9,5 +9,5 @@ struct TetrisConfig {
     unsigned screenHeight;
     bool showFps;
     unsigned initialLevel;
-    void load(std::string const& fileName);
+    void load(std::string const& fileName);    
 };

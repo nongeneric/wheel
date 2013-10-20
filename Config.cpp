@@ -7,7 +7,7 @@
 <tetris orthographic="true"
         fullscreen="true"
         showFps="false"
-        initialLevel="17">
+        initialLevel="19">
     <resolution width="1920"
                 height="1080"/>
 </tetris>
