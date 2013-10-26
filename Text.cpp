@@ -123,7 +123,7 @@ public:
             pen_x += entry.advanceX / 64;
             prev = glyph_index;
         }
-        BitmapPtr fcropped = make_bitmap_ptr( FreeImage_Copy(_fbitmap.get(), 0, pxHeight * 1.1f, pen_x, 0) );
+        BitmapPtr fcropped = make_bitmap_ptr( FreeImage_Copy(_fbitmap.get(), 0, pxHeight * 1.3f, pen_x, 0) );
         BitmapPtr fbitmap32 = make_bitmap_ptr( FreeImage_ConvertTo32Bits(fcropped.get()) );
         for (size_t y = 0; y < FreeImage_GetHeight(fbitmap32.get()); ++y) {
             for (size_t x = 0; x < FreeImage_GetWidth(fbitmap32.get()); ++x) {

@@ -576,7 +576,7 @@ public:
         _sampler = _program.getUniformLocation("sampler");
         _transformUniform = _program.getUniformLocation("transform");
         _colorUniform = _program.getUniformLocation("color");
-        _color = glm::vec3 { 1.0f, 1.0f, 1.0f};
+        _color = glm::vec3 { 1.0f, 1.0f, 1.0f };
         initVao();
     }
 
@@ -617,6 +617,8 @@ public:
     }
     void setTransform(glm::mat4 transform) override {
         _externalTransform = transform;
+        _externalTransform[3][0] /= _framebuffer.x / 2;
+        _externalTransform[3][1] /= _framebuffer.y / 2;
     }
 };
 
@@ -1135,34 +1137,34 @@ public:
         return a + ratio * ratio * ratio * ratio * (b - a);
     }
 
-    void advance(fseconds) {
-//        if (!_animating)
-//            return;
-//        fseconds duration(0.4f);
-//        if (_elapsed > duration) {
-//            _animating = false;
-//            return;
-//        }
-//        _elapsed += dt;
-//        float ratio = std::min(_elapsed.count() / duration.count(), 1.0f);
-//        ratio = _isAssembling ? 1.0f - ratio : ratio;
-//        for (unsigned i = 0; i < _leafs.size(); ++i) {
-//            if (i & 1) {
-//                glm::vec3 trans {
-//                    animCurve(_leafPositions[i].center.x, _leafPositions[i].right.x, ratio),
-//                    _leafPositions[i].center.y,
-//                    .0f
-//                };
-//                _leafs[i]->setTransform(glm::translate( {}, trans));
-//            } else {
-//                glm::vec3 trans {
-//                    animCurve(_leafPositions[i].center.x, _leafPositions[i].left.x, ratio),
-//                    _leafPositions[i].center.y,
-//                    .0f
-//                };
-//                _leafs[i]->setTransform(glm::translate( {}, trans));
-//            }
-//        }
+    void advance(fseconds dt) {
+        if (!_animating)
+            return;
+        fseconds duration(0.4f);
+        if (_elapsed > duration) {
+            _animating = false;
+            return;
+        }
+        _elapsed += dt;
+        float ratio = std::min(_elapsed.count() / duration.count(), 1.0f);
+        ratio = _isAssembling ? 1.0f - ratio : ratio;
+        for (unsigned i = 0; i < _leafs.size(); ++i) {
+            if (i & 1) {
+                glm::vec3 trans {
+                    animCurve(.0f, _leafPositions[i].right.x - _leafPositions[i].center.x, ratio),
+                    .0f,
+                    .0f
+                };
+                _leafs[i]->setTransform(glm::translate( {}, trans));
+            } else {
+                glm::vec3 trans {
+                    animCurve(.0f, _leafPositions[i].left.x - _leafPositions[i].center.x, ratio),
+                    .0f,
+                    .0f
+                };
+                _leafs[i]->setTransform(glm::translate( {}, trans));
+            }
+        }
     }
 
     void animate(fseconds) override { }
@@ -1183,9 +1185,9 @@ public:
         float y = 0;
         for (auto& leaf : _leafs) {
             auto size = leaf->desired();
-            glm::vec2 center { (width - size.x) / 2, y };
+            glm::vec2 center { (available.x - size.x) / 2, y };
             glm::vec2 left { .0f, y };
-            glm::vec2 right { width - size.x, y};
+            glm::vec2 right { framebuffer.x - size.x, y};
             _leafPositions.push_back({left, center, right});
             y += size.y * _lineHeight;
         }
@@ -1303,10 +1305,10 @@ public:
         _menu->draw();
     }
 
-    void show(bool on) {
-        clearHighlights();
+    void show() {
         _leaf = _menu->leafs().front();
-        _menu->animate(on);
+        _menu->animate(true);
+        clearHighlights();
     }
 };
 
@@ -1436,10 +1438,10 @@ public:
     WindowLayout(IWidget* widget, float relHeight, bool isCentered)
         : _widget(widget), _relHeight(relHeight), _isCentered(isCentered) { }
     void updateFramebuffer(glm::vec2 framebuffer) {
-        _widget->measure(glm::vec2 {.0f, .0f}, framebuffer);
+        _widget->measure(glm::vec2 {framebuffer.x, .0f}, framebuffer);
         glm::vec2 pos;
         if (_isCentered)
-            pos = ((framebuffer - _widget->desired()) * 0.5f);
+            pos = glm::vec2 { .0f, ((framebuffer.y - _widget->desired().y) * 0.5f) };
         else
             pos = glm::vec2 { .0f, framebuffer.y - _widget->desired().y };
         _widget->arrange(pos, _widget->desired());
@@ -1532,7 +1534,7 @@ int desktop_entry() {
     });
     keys.onDown(GLFW_KEY_ESCAPE, GameHandler, [&]() {
         pm.flip();
-        menu.show(true);
+        menu.show();
     });
 
     menu.onValueChanged(mainMenuStructure.resume, [&]() {
@@ -1569,8 +1571,7 @@ int desktop_entry() {
         hudList.setLine(2, vformat(u8"Уровень: %d", tetris.getStats().level));
         if (config.showFps) {
             hudList.setLine(3, vformat("FPS: %d", fps.fps()));
-        }
-        hudList.setLine(4, gameOverText);
+        }        
 
         glm::vec2 framebuffer = window.getFramebufferSize();
         glm::mat4 proj = getProjection(framebuffer, config.orthographic);
@@ -1603,6 +1604,7 @@ int desktop_entry() {
         }
 
         keys.advance(dt);
+        camController.advance();
         if (pm.paused()) {
             menu.advance(realDt);
         }
