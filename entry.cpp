@@ -533,8 +533,7 @@ IndexBuffer createFullScreenIndices() {
     }};
 }
 
-class IWidget {
-public:
+struct IWidget {
     virtual void animate(fseconds dt) = 0;
     virtual void draw() = 0;
     virtual void measure(glm::vec2 available, glm::vec2 framebuffer) = 0;
@@ -1033,7 +1032,13 @@ std::vector<R> fmap(std::vector<T> const& a, std::function<R(const T&)> f) {
     return res;
 }
 
-class MenuLeaf : public IWidget {
+class ISpreadAnimationLine {
+public:
+    virtual float width() = 0;
+    virtual void setTransform(glm::mat4) = 0;
+};
+
+class MenuLeaf : public IWidget, public ISpreadAnimationLine {
     std::vector<std::string> _values;
     std::string _value;
     TextLine _line;    
@@ -1054,7 +1059,7 @@ public:
         return _values;
     }
 
-    std::string value() const {
+    std::string value() {
         return _value;
     }
 
@@ -1082,15 +1087,81 @@ public:
     void setTransform(glm::mat4 transform) override {
         _line.setTransform(transform);
     }
+    float width() override {
+        return desired().x;
+    }
+};
+
+class SpreadAnimator {
+    struct Pos {
+        float left;
+        float center;
+        float right;
+    };
+    fseconds _elapsed;
+    std::vector<ISpreadAnimationLine*> _widgets;
+    std::vector<Pos> _positions;
+    bool _isAssembling;
+    bool _animating = false;
+
+    float animCurve(float a, float b, float ratio) {
+        return a + ratio * ratio * ratio * ratio * (b - a);
+    }
+public:
+    SpreadAnimator(std::vector<ISpreadAnimationLine*> widgets) : _widgets(widgets) { }
+    float calcWidthAfterMeasure(float availableWidth) {
+        float width = 0;
+        for (auto const& w : _widgets) {
+            width = std::max(width, w->width());
+        }
+        _positions.clear();
+        for (auto& w : _widgets) {
+            _positions.push_back({.0f, (availableWidth - w->width()) / 2, availableWidth - w->width()});
+        }
+        return width;
+    }
+    std::vector<float> getCenters() {
+        return fmap<Pos, float>(_positions, [](Pos const& p) {
+            return p.center;
+        });
+    }
+    void beginAnimating(bool assemble) {
+        _animating = true;
+        _elapsed = fseconds();
+        _isAssembling = assemble;
+    }
+    void animate(fseconds dt) {
+        if (!_animating)
+            return;
+        fseconds duration(0.4f);
+        if (_elapsed > duration) {
+            _animating = false;
+            return;
+        }
+        _elapsed += dt;
+        float ratio = std::min(_elapsed.count() / duration.count(), 1.0f);
+        ratio = _isAssembling ? 1.0f - ratio : ratio;
+        for (unsigned i = 0; i < _widgets.size(); ++i) {
+            if (i & 1) {
+                glm::vec3 trans {
+                    animCurve(.0f, _positions[i].right - _positions[i].center, ratio),
+                    .0f,
+                    .0f
+                };
+                _widgets[i]->setTransform(glm::translate( {}, trans));
+            } else {
+                glm::vec3 trans {
+                    animCurve(.0f, _positions[i].left - _positions[i].center, ratio),
+                    .0f,
+                    .0f
+                };
+                _widgets[i]->setTransform(glm::translate( {}, trans));
+            }
+        }
+    }
 };
 
 class Menu : public IWidget {
-    struct LeafPos {
-        glm::vec2 left;
-        glm::vec2 center;
-        glm::vec2 right;
-    };
-
     static constexpr float _lineHeight = 1.2f;
     static constexpr float _charRelHeight = 0.05f;
 
@@ -1099,26 +1170,32 @@ class Menu : public IWidget {
     Text* _textCache;
     glm::vec2 _pos;
     Menu* _parent = nullptr;
-    std::vector<LeafPos> _leafPositions;
-    bool _animating = false;
-    fseconds _elapsed;
-    bool _isAssembling;
+    //std::vector<LeafPos> _leafPositions;
+    //bool _animating = false;
+    //fseconds _elapsed;
+    //bool _isAssembling;
     glm::vec2 _size;
+    std::unique_ptr<SpreadAnimator> _animator;
 
-public:
-    Menu(Text* textCache) : _textCache(textCache) { }
-
-    void animate(bool assemble) {
-        _animating = assemble;
-        _elapsed = fseconds();
-        _isAssembling = assemble;
+    std::vector<ISpreadAnimationLine*> leafsAsAnimationLines() {
+        return fmap<std::unique_ptr<MenuLeaf>, ISpreadAnimationLine*>(_leafs, [](std::unique_ptr<MenuLeaf> const& leaf) {
+            return leaf.get();
+        });
     }
 
-    MenuLeaf* addLeaf(std::string text,
-                      std::vector<std::string> values)
+public:
+    Menu(Text* textCache) : _textCache(textCache) { }    
+
+    void animate(bool assemble) {
+        if (!_animator) {
+            _animator.reset(new SpreadAnimator(leafsAsAnimationLines()));
+        }
+        _animator->beginAnimating(assemble);
+    }
+
+    void addLeaf(MenuLeaf* leaf)
     {
-        _leafs.emplace_back(new MenuLeaf(_textCache, values, text, _charRelHeight));
-        return _leafs.back().get();
+        _leafs.push_back(std::unique_ptr<MenuLeaf>(leaf));
     }
 
     std::vector<MenuLeaf*> leafs() {
@@ -1133,74 +1210,33 @@ public:
         return _size;
     }
 
-    float animCurve(float a, float b, float ratio) {
-        return a + ratio * ratio * ratio * ratio * (b - a);
+    void animate(fseconds dt) override {
+        _animator->animate(dt);
     }
-
-    void advance(fseconds dt) {
-        if (!_animating)
-            return;
-        fseconds duration(0.4f);
-        if (_elapsed > duration) {
-            _animating = false;
-            return;
-        }
-        _elapsed += dt;
-        float ratio = std::min(_elapsed.count() / duration.count(), 1.0f);
-        ratio = _isAssembling ? 1.0f - ratio : ratio;
-        for (unsigned i = 0; i < _leafs.size(); ++i) {
-            if (i & 1) {
-                glm::vec3 trans {
-                    animCurve(.0f, _leafPositions[i].right.x - _leafPositions[i].center.x, ratio),
-                    .0f,
-                    .0f
-                };
-                _leafs[i]->setTransform(glm::translate( {}, trans));
-            } else {
-                glm::vec3 trans {
-                    animCurve(.0f, _leafPositions[i].left.x - _leafPositions[i].center.x, ratio),
-                    .0f,
-                    .0f
-                };
-                _leafs[i]->setTransform(glm::translate( {}, trans));
-            }
-        }
-    }
-
-    void animate(fseconds) override { }
     void draw() override {
         for (auto const& leaf : _leafs) {
             leaf->draw();
         }
     }
     void measure(glm::vec2 available, glm::vec2 framebuffer) override {
-        float width = 0;
-        float heightPerLine = available.y / (1.2f * _leafs.size());
+        if (!_animator) {
+            _animator.reset(new SpreadAnimator(leafsAsAnimationLines()));
+        }
         for (auto const& leaf : _leafs) {
-            leaf->measure(glm::vec2 { 0, heightPerLine }, framebuffer);
-            width = std::max(width, leaf->desired().x);
+            leaf->measure(glm::vec2 { 0, 0 }, framebuffer);
         }
 
-        _leafPositions.clear();
         float y = 0;
-        for (auto& leaf : _leafs) {
-            auto size = leaf->desired();
-            glm::vec2 center { (available.x - size.x) / 2, y };
-            glm::vec2 left { .0f, y };
-            glm::vec2 right { framebuffer.x - size.x, y};
-            _leafPositions.push_back({left, center, right});
-            y += size.y * _lineHeight;
-        }
-        for (auto& triple : _leafPositions) {
-            triple.left.y = _leafPositions.back().left.y - triple.left.y;
-            triple.center.y = _leafPositions.back().center.y - triple.center.y;
-            triple.right.y = _leafPositions.back().right.y - triple.right.y;
-        }
-        _size = glm::vec2 { width, y };
+        for (auto& leaf : _leafs)
+            y += leaf->desired().y * 1.2;
+        _size = glm::vec2 { _animator->calcWidthAfterMeasure(available.x), y };
     }
     void arrange(glm::vec2 pos, glm::vec2) override {
+        auto centers = _animator->getCenters();
+        float y = _size.y;
         for (unsigned i = 0; i < _leafs.size(); ++i) {
-            _leafs[i]->arrange(pos + _leafPositions[i].center, _leafs[i]->desired());
+            y -= _leafs[i]->desired().y * 1.2;
+            _leafs[i]->arrange(pos + glm::vec2 { centers[i], y }, _leafs[i]->desired());
         }
     }
     glm::vec2 desired() override {
@@ -1214,6 +1250,8 @@ class MenuController {
     Menu* _menu;
     MenuLeaf *_leaf;
     std::stack<Menu*> _history;
+    bool _customScreen = false;
+    std::function<void()> _onLeaveCustomScreen;
 
     void advanceFocus(int delta) {
         _leaf->highlight(false);
@@ -1251,12 +1289,18 @@ public:
         setActiveMenu(menu, false);
         clearHighlights();
         keys->onDown(GLFW_KEY_DOWN, MenuHandler, [&]() {
+            if (_customScreen)
+                return;
             advanceFocus(1);
         });
         keys->onDown(GLFW_KEY_UP, MenuHandler, [&]() {
+            if (_customScreen)
+                return;
             advanceFocus(-1);
         });
         keys->onDown(GLFW_KEY_ENTER, MenuHandler, [&]() {
+            if (_customScreen)
+                return;
             if (_leaf->values().empty()) {
                 assert(_handlers.find(_leaf) != end(_handlers));
                 _handlers[_leaf]();
@@ -1264,11 +1308,15 @@ public:
         });
         keys->onDown(GLFW_KEY_ESCAPE, MenuHandler, [&]() { back(); });
         keys->onRepeat(GLFW_KEY_LEFT, fseconds(0.15f), MenuHandler, [&]() {
+            if (_customScreen)
+                return;
             if (_leaf->values().empty())
                 return;
             advanceValue(-1, _leaf);
         });
         keys->onRepeat(GLFW_KEY_RIGHT, fseconds(0.15f), MenuHandler, [&]() {
+            if (_customScreen)
+                return;
             if (_leaf->values().empty())
                 return;
             advanceValue(1, _leaf);
@@ -1279,9 +1327,22 @@ public:
         if (_history.size() > 0) {
             setActiveMenu(_history.top(), false);
             _history.pop();
+            if (_customScreen) {
+                _customScreen = false;
+                _onLeaveCustomScreen();
+            }
         } else {
             _handlers[nullptr]();
         }
+    }
+
+    void onLeaveCustomScreen(std::function<void()> handler) {
+        _onLeaveCustomScreen = handler;
+    }
+
+    void toCustomScreen() {
+        _history.push(_menu);
+        _customScreen = true;
     }
 
     void onValueChanged(MenuLeaf* leaf, std::function<void()> handler) {
@@ -1289,7 +1350,7 @@ public:
     }
 
     void advance(fseconds dt) {
-        _menu->advance(dt);
+        _menu->animate(dt);
     }
 
     void setActiveMenu(Menu* menu, bool saveState = true) {
@@ -1302,7 +1363,9 @@ public:
     }
 
     void draw() {
-        _menu->draw();
+        if (!_customScreen) {
+            _menu->draw();
+        }
     }
 
     void show() {
@@ -1320,13 +1383,18 @@ struct MainMenuStructure {
     MenuLeaf* exit;
 };
 
-MainMenuStructure initMainMenu(Menu& menu) {
+MainMenuStructure initMainMenu(Menu& menu, Text& text) {
     MainMenuStructure res;
-    res.resume = menu.addLeaf("Resume", {});
-    res.restart = menu.addLeaf("Restart", {});
-    res.options = menu.addLeaf("Options", {});
-    res.hallOfFame = menu.addLeaf("Hall of fame", {});
-    res.exit = menu.addLeaf("Exit", {});
+    res.resume = new MenuLeaf(&text, {}, "Resume", 0.05);
+    res.restart = new MenuLeaf(&text, {}, "Restart", 0.05);
+    res.options = new MenuLeaf(&text, {}, "Options", 0.05);
+    res.hallOfFame = new MenuLeaf(&text, {}, "Hall of fame", 0.05);
+    res.exit = new MenuLeaf(&text, {}, "Exit", 0.05);
+    menu.addLeaf(res.resume);
+    menu.addLeaf(res.restart);
+    menu.addLeaf(res.options);
+    menu.addLeaf(res.hallOfFame);
+    menu.addLeaf(res.exit);
     return res;
 }
 
@@ -1344,13 +1412,17 @@ std::vector<std::string> genNumbers(int count) {
     return res;
 }
 
-OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig config) {
+OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig config, Text& text) {
     OptionsMenuStructure res;
     int speed = std::min(config.initialLevel, 19u);
-    res.back = menu.addLeaf("Back", {});
-    (res.initialSpeed = menu.addLeaf("Initial speed", genNumbers(20)))->setValue(vformat("%d", speed));
-    (res.fullscreen = menu.addLeaf("Fullscreen", {"On", "Off"}))->setValue(config.fullScreen ? "On" : "Off");
-    (res.resolution = menu.addLeaf("Resolution", {"1920x1080"}))->setValue("1920x1080");
+    res.back = new MenuLeaf(&text, {}, "Back", 0.05);
+    (res.initialSpeed = new MenuLeaf(&text, genNumbers(20), "Initial speed", 0.05f))->setValue(vformat("%d", speed));
+    (res.fullscreen = new MenuLeaf(&text, {"On", "Off"}, "Initial speed", 0.05f))->setValue(config.fullScreen ? "On" : "Off");
+    (res.resolution = new MenuLeaf(&text, {"1920x1080"}, "1920x1080", 0.05f))->setValue("1920x1080");
+    menu.addLeaf(res.back);
+    menu.addLeaf(res.initialSpeed);
+    menu.addLeaf(res.fullscreen);
+    menu.addLeaf(res.resolution);
     return res;
 }
 
@@ -1361,74 +1433,100 @@ struct HighscoreRecord {
     int initialLevel;
 };
 
-//class HighscoreScreen {
-//    static constexpr unsigned _columns = 5;
-//    static constexpr float _lineHeight = 0.05f;
-//    typedef std::array<std::string, _columns> Line;
-//    std::map<std::tuple<unsigned, unsigned>, std::unique_ptr<TextLine>> _grid;
-//    Text* _text;
-//    std::vector<float> _sizes;
-//    std::vector<Line> _lines;
-//    glm::vec2 _framebuffer;
-//    void layoutLines() {
-//        if (!_sizes.size()) {
-//            _sizes.resize(_columns);
-//            for (unsigned column = 0; column < _columns; ++column) {
-//                for (unsigned line = 0; line < _lines.size(); ++line) {
-//                    auto cacheIdx = std::make_tuple(line, column);
-//                    if (!_grid[cacheIdx]) {
-//                        _grid[cacheIdx].reset(new TextLine(_text, _lineHeight));
-//                        _grid[cacheIdx]->setFramebuffer(_framebuffer);
-//                        _grid[cacheIdx]->set(_lines[line][column]);
-//                    }
-//                    _sizes[column] = std::max(_sizes[column], _grid[cacheIdx]->size().x);
-//                }
-//            }
-//            //_sizes[1] = 0.95f * _framebuffer.x - _sizes[0] - _sizes[2] - _sizes[3] - _sizes[4];
-//        }
-//        float x = 0;
-//        for (unsigned column = 0; column < _columns; ++column) {
-//            for (unsigned line = 0; line < _lines.size(); ++line) {
-//                TextLine* tl = _grid[std::make_tuple(line, column)].get();
-//                tl->setPos(x, _framebuffer.y * (1.0f - (line + 1) * _lineHeight * 1.1f));
-//            }
-//            x += _sizes[column];
-//        }
-//    }
-//public:
-//    HighscoreScreen(std::vector<HighscoreRecord> records, Text* text)
-//        : _text(text)
-//    {
-//        unsigned i = 1;
-//        _lines = fmap<HighscoreRecord, Line>(records, [&i](HighscoreRecord const& rec) {
-//            return Line {
-//                vformat("%d", i++),
-//                rec.name,
-//                vformat("%d", rec.lines),
-//                vformat("%d", rec.score),
-//                vformat("%d", rec.initialLevel)
-//            };
-//        });
-//        _lines.insert(begin(_lines),
-//            { "#", "Name", "Lines", "Score", "Lvl" }
-//        );
-//    }
-//    void setFramebuffer(glm::vec2 framebuffer) {
-//        if (epseq(_framebuffer, framebuffer))
-//            return;
-//        _sizes.clear();
-//        _framebuffer = framebuffer;
-//        for (auto& pair : _grid) {
-//            pair.second->setFramebuffer(framebuffer);
-//        }
-//    }
-//    void draw() {
-//        layoutLines();
-//        for (auto& pair : _grid) {
-//            pair.second->draw();
-//        }
-//    }
-//};
+class HighscoreScreen : public IWidget {
+    struct HighscoreLine : public ISpreadAnimationLine {
+        HighscoreLine(Text* text, std::vector<std::string> columns) {
+            this->columns = columns;
+            for (std::string col : columns) {
+                textLines.emplace_back(text, 0.05);
+                textLines.back().set(col);
+            }
+        }
+        std::vector<TextLine> textLines;
+        std::vector<std::string> columns;
+        float width() override {
+            float w = 0;
+            for (auto& tl : textLines)
+                w = std::max(w, tl.desired().x);
+            return w;
+        }
+        void setTransform(glm::mat4 m) {
+            for (auto& tl : textLines)
+                tl.setTransform(m);
+        }
+    };
+    std::vector<HighscoreLine> _lines;
+    glm::vec2 _desired;
+    std::vector<float> _columnWidths;
+    float _xOffset;
+    std::unique_ptr<SpreadAnimator> _animator;
+
+    std::vector<ISpreadAnimationLine*> asAnimationLines() {
+        std::vector<ISpreadAnimationLine*> res;
+        for (auto& line : _lines)
+            res.push_back(&line);
+        return res;
+    }
+public:
+    HighscoreScreen(std::vector<HighscoreRecord> records, Text* text) {
+        int i = 1;
+        for (HighscoreRecord rec : records) {
+            _lines.push_back(HighscoreLine(text, {
+                vformat("%d", i++),
+                rec.name,
+                vformat("%d", rec.lines),
+                vformat("%d", rec.score),
+                vformat("%d", rec.initialLevel)
+            }));
+        }
+        rstd::reverse(_lines);
+        _lines.push_back(HighscoreLine(text, { "#", "Name", "Lines", "Score", "Lvl" }));
+        _animator.reset(new SpreadAnimator(asAnimationLines()));
+    }
+    void beginAnimating(bool assemble) {
+        _animator->beginAnimating(assemble);
+    }
+    void animate(fseconds dt) override {
+        _animator->animate(dt);
+    }
+    void draw() {
+        for (HighscoreLine& line : _lines) {
+            for (TextLine& tline : line.textLines) {
+                tline.draw();
+            }
+        }
+    }
+    void measure(glm::vec2, glm::vec2 framebuffer) override {
+        _columnWidths.resize(5);
+        rstd::fill(_columnWidths, 0);
+        float y = 0;
+        for (HighscoreLine& line : _lines) {
+            for (unsigned i = 0; i < line.columns.size(); ++i) {
+                line.textLines[i].measure(glm::vec2{}, framebuffer);
+                _columnWidths[i] = std::max(_columnWidths[i], line.textLines[i].desired().x);
+            }
+            y += line.textLines.front().desired().y;
+        }
+        _desired = glm::vec2 { rstd::accumulate(_columnWidths, .0f), y };
+        _xOffset = (framebuffer.x - rstd::accumulate(_columnWidths, .0f)) / 2;
+        _animator->calcWidthAfterMeasure(framebuffer.x);
+    }
+    void arrange(glm::vec2 pos, glm::vec2) override {
+        float y = 0;
+        for (HighscoreLine& line : _lines) {
+            float x = 0;
+            for (unsigned i = 0; i < line.columns.size(); ++i) {
+                line.textLines[i].arrange(pos + glm::vec2 { x + _xOffset, y }, line.textLines[i].desired());
+                x += _columnWidths[i];
+            }
+            y += line.textLines.front().desired().y;
+        }
+    }
+    glm::vec2 desired() override {
+        return _desired;
+    }
+    void setTransform(glm::mat4) override { }
+};
 
 class WindowLayout {
     IWidget* _widget;
@@ -1441,7 +1539,7 @@ public:
         _widget->measure(glm::vec2 {framebuffer.x, .0f}, framebuffer);
         glm::vec2 pos;
         if (_isCentered)
-            pos = glm::vec2 { .0f, ((framebuffer.y - _widget->desired().y) * 0.5f) };
+            pos = glm::vec2 { .0f, (framebuffer.y - _widget->desired().y) * 0.5f };
         else
             pos = glm::vec2 { .0f, framebuffer.y - _widget->desired().y };
         _widget->arrange(pos, _widget->desired());
@@ -1503,14 +1601,18 @@ int desktop_entry() {
     Menu mainMenu(&text), optionsMenu(&text);
     WindowLayout mainMenuLayout(&mainMenu, 0.4f, true);
     WindowLayout optionsMenuLayout(&optionsMenu, 0.4f, true);
-    MainMenuStructure mainMenuStructure = initMainMenu(mainMenu);
-    OptionsMenuStructure optionsMenuStructure = initOptionsMenu(optionsMenu, config);
+    MainMenuStructure mainMenuStructure = initMainMenu(mainMenu, text);
+    OptionsMenuStructure optionsMenuStructure = initOptionsMenu(optionsMenu, config, text);
+
+    HighscoreScreen hscreen({ { "Test Name", 10, 11, 5 }, { "My name", 5, 2000, 3 } }, &text);
+    WindowLayout hscreenLayout(&hscreen, 0.05, true);
 
     FpsCounter fps;    
     bool canManuallyMove;
     bool normalStep;
     bool nextPiece = false;
     bool exit = false;
+    bool drawHScreen = false;
     MenuController menu(&mainMenu, &keys);
     keys.onRepeat(GLFW_KEY_LEFT, fseconds(0.09f), GameHandler, [&]() {
         if (canManuallyMove) {
@@ -1549,6 +1651,14 @@ int desktop_entry() {
     menu.onValueChanged(mainMenuStructure.options, [&]() {
         menu.setActiveMenu(&optionsMenu);
     });
+    menu.onValueChanged(mainMenuStructure.hallOfFame, [&]() {
+        menu.toCustomScreen();
+        hscreen.beginAnimating(true);
+        drawHScreen = true;
+    });
+    menu.onLeaveCustomScreen([&]() {
+        drawHScreen = false;
+    });
     menu.onValueChanged(mainMenuStructure.exit, [&]() {
         exit = true;
     });
@@ -1560,8 +1670,6 @@ int desktop_entry() {
     menu.onValueChanged(optionsMenuStructure.fullscreen, empty);
     menu.onValueChanged(optionsMenuStructure.initialSpeed, empty);
     menu.onValueChanged(optionsMenuStructure.resolution, empty);
-
-    //HighscoreScreen hscreen({ { "Test Name", 10, 11, 5 } }, &text);
 
     while (!window.shouldClose()) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1580,6 +1688,7 @@ int desktop_entry() {
         hudLayout.updateFramebuffer(framebuffer);
         mainMenuLayout.updateFramebuffer(framebuffer);
         optionsMenuLayout.updateFramebuffer(framebuffer);
+        hscreenLayout.updateFramebuffer(framebuffer);
 
         auto now = chrono::high_resolution_clock::now();
         fseconds dt = chrono::duration_cast<fseconds>(now - past);
@@ -1607,6 +1716,8 @@ int desktop_entry() {
         camController.advance();
         if (pm.paused()) {
             menu.advance(realDt);
+            if (drawHScreen)
+                hscreen.animate(realDt);
         }
 
         if (nextPiece) {
@@ -1644,8 +1755,10 @@ int desktop_entry() {
         if (pm.paused()) {
             p2d.draw();
             menu.draw();
+            if (drawHScreen) {
+                hscreen.draw();
+            }
         }
-        //hscreen.draw();
 
         glEnable(GL_DEPTH_TEST);
 

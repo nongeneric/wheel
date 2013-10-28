@@ -27,4 +27,8 @@ namespace rstd {
     void reverse(Cont& cont) {
         std::reverse(std::begin(cont), std::end(cont));
     }
+    template<typename Cont>
+    typename Cont::value_type accumulate(Cont& cont, typename Cont::value_type initial) {
+        return std::accumulate(begin(cont), end(cont), initial);
+    }
 }
