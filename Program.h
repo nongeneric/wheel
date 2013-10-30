@@ -7,7 +7,7 @@
 #include <vector>
 #include <string>
 
-#define SHADER_VERSION "#version 140\n"
+#define SHADER_VERSION "#version 130\n"
 
 class Program {
     std::vector<GLuint> _shaders;

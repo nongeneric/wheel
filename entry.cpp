@@ -13,6 +13,7 @@
 #include "Mesh.h"
 #include "Trunk.h"
 #include "Camera.h"
+#include "MathTools.h"
 
 #include "Widgets/SpreadAnimator.h"
 #include "Widgets/IWidget.h"
@@ -282,10 +283,14 @@ class WindowLayout {
     IWidget* _widget;
     float _relHeight;
     bool _isCentered;
+    glm::vec2 _prevFramebuffer;
 public:
     WindowLayout(IWidget* widget, float relHeight, bool isCentered)
         : _widget(widget), _relHeight(relHeight), _isCentered(isCentered) { }
     void updateFramebuffer(glm::vec2 framebuffer) {
+        if (epseq(framebuffer, _prevFramebuffer))
+            return;
+        _prevFramebuffer = framebuffer;
         _widget->measure(glm::vec2 {framebuffer.x, .0f}, framebuffer);
         glm::vec2 pos;
         if (_isCentered)
@@ -308,6 +313,44 @@ public:
         _paused = !_paused;
         _keys->disableHandler(_paused ? GameHandler : MenuHandler);
         _keys->enableHandler(_paused ? MenuHandler : GameHandler);
+    }
+};
+
+class HScreenManager {
+    HighscoreScreen* _lines;
+    HighscoreScreen* _score;
+    HighscoreScreen* _current;
+    bool _show = false;
+public:
+    HScreenManager(HighscoreScreen* lines, HighscoreScreen* score)
+        : _lines(lines), _score(score), _current(_lines) { }
+    void right() {
+        if (_current == _lines) {
+            _current = _score;
+            _current->beginAnimating(true);
+        }
+    }
+    void left() {
+        if (_current == _score) {
+            _current = _lines;
+            _current->beginAnimating(true);
+        }
+    }
+    void draw() {
+        if (_show)
+            _current->draw();
+    }
+    void show(bool on) {
+        _show = on;
+        if (_show) {
+            _current->beginAnimating(true);
+        }
+    }
+    bool show() const {
+        return _show;
+    }
+    void animate(fseconds dt) {
+        _current->animate(dt);
     }
 };
 
@@ -354,15 +397,17 @@ int desktop_entry() {
     MainMenuStructure mainMenuStructure = initMainMenu(mainMenu, text);
     OptionsMenuStructure optionsMenuStructure = initOptionsMenu(optionsMenu, config, text);
 
-    HighscoreScreen hscreen({ { "Test Name", 10, 11, 5 }, { "My name", 5, 2000, 3 } }, &text);
-    WindowLayout hscreenLayout(&hscreen, 0.05, true);
+    HighscoreScreen hscreenLines({ { "Test Name", 10, 11, 5 }, { "My name", 5, 2000, 3 } }, &text);
+    HighscoreScreen hscreenScore({ { "SCORE!!!", 10, 11, 5 } }, &text);
+    WindowLayout hscreenLinesLayout(&hscreenLines, 0.05, true);
+    WindowLayout hscreenScoreLayout(&hscreenScore, 0.05, true);
+    HScreenManager hscreen(&hscreenLines, &hscreenScore);
 
-    FpsCounter fps;    
+    FpsCounter fps;
     bool canManuallyMove;
     bool normalStep;
     bool nextPiece = false;
     bool exit = false;
-    bool drawHScreen = false;
     MenuController menu(&mainMenu, &keys);
     keys.onRepeat(GLFW_KEY_LEFT, fseconds(0.09f), GameHandler, [&]() {
         if (canManuallyMove) {
@@ -388,6 +433,14 @@ int desktop_entry() {
         pm.flip();
         menu.show();
     });
+    keys.onDown(GLFW_KEY_LEFT, MenuHandler, [&]() {
+        if (hscreen.show())
+            hscreen.left();
+    });
+    keys.onDown(GLFW_KEY_RIGHT, MenuHandler, [&]() {
+        if (hscreen.show())
+            hscreen.right();
+    });
 
     menu.onValueChanged(mainMenuStructure.resume, [&]() {
         pm.flip();
@@ -403,11 +456,10 @@ int desktop_entry() {
     });
     menu.onValueChanged(mainMenuStructure.hallOfFame, [&]() {
         menu.toCustomScreen();
-        hscreen.beginAnimating(true);
-        drawHScreen = true;
+        hscreen.show(true);
     });
     menu.onLeaveCustomScreen([&]() {
-        drawHScreen = false;
+        hscreen.show(false);
     });
     menu.onValueChanged(mainMenuStructure.exit, [&]() {
         exit = true;
@@ -438,7 +490,8 @@ int desktop_entry() {
         hudLayout.updateFramebuffer(framebuffer);
         mainMenuLayout.updateFramebuffer(framebuffer);
         optionsMenuLayout.updateFramebuffer(framebuffer);
-        hscreenLayout.updateFramebuffer(framebuffer);
+        hscreenLinesLayout.updateFramebuffer(framebuffer);
+        hscreenScoreLayout.updateFramebuffer(framebuffer);
 
         auto now = chrono::high_resolution_clock::now();
         fseconds dt = chrono::duration_cast<fseconds>(now - past);
@@ -466,8 +519,7 @@ int desktop_entry() {
         camController.advance();
         if (pm.paused()) {
             menu.advance(realDt);
-            if (drawHScreen)
-                hscreen.animate(realDt);
+            hscreen.animate(realDt);
         }
 
         if (nextPiece) {
@@ -497,7 +549,7 @@ int desktop_entry() {
 
         if (tetris.getStats().gameOver) {
             hudList.setLine(4, gameOverText);
-        }        
+        }
 
         glDisable(GL_DEPTH_TEST);
 
@@ -505,9 +557,7 @@ int desktop_entry() {
         if (pm.paused()) {
             p2d.draw();
             menu.draw();
-            if (drawHScreen) {
-                hscreen.draw();
-            }
+            hscreen.draw();
         }
 
         glEnable(GL_DEPTH_TEST);

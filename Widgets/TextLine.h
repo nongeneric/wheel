@@ -10,6 +10,8 @@ class TextLine : public IWidget {
     bool _lineChanged = false;
     glm::vec2 _framebuffer;
     float _relHeight;
+    glm::vec2 _pos;
+    void updateText();
 public:
     TextLine(Text* text, float relHeight);
     void set(std::string line);
