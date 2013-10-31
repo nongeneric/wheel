@@ -37,22 +37,22 @@ void Camera::reset() {
 CameraController::CameraController(Window *window, Camera *camera, Keyboard *keys)
     : _camera(camera), _window(window)
 {
-    keys->onRepeat(GLFW_KEY_KP_4, fseconds(0.015f), CameraHandler, [&]() {
+    keys->onRepeat(GLFW_KEY_KP_4, fseconds(0.015f), State::Game, [&]() {
         _leftPressed = true;
     });
-    keys->onRepeat(GLFW_KEY_KP_6, fseconds(0.015f), CameraHandler, [&]() {
+    keys->onRepeat(GLFW_KEY_KP_6, fseconds(0.015f), State::Game, [&]() {
         _rightPressed = true;
     });
-    keys->onRepeat(GLFW_KEY_KP_8, fseconds(0.015f), CameraHandler, [&]() {
+    keys->onRepeat(GLFW_KEY_KP_8, fseconds(0.015f), State::Game, [&]() {
         _upPressed = true;
     });
-    keys->onRepeat(GLFW_KEY_KP_2, fseconds(0.015f), CameraHandler, [&]() {
+    keys->onRepeat(GLFW_KEY_KP_2, fseconds(0.015f), State::Game, [&]() {
         _downPressed = true;
     });
-    keys->onDown(GLFW_KEY_KP_5, CameraHandler, [&]() {
+    keys->onDown(GLFW_KEY_KP_5, State::Game, [&]() {
         _camera->reset();
     });
-    keys->enableHandler(CameraHandler);
+    keys->enableHandler(State::Game);
 }
 
 void CameraController::advance() {

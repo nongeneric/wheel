@@ -6,10 +6,11 @@
 
 using fseconds = boost::chrono::duration<float>;
 
-enum HandlerIds {
-    CameraHandler = 1,
-    MenuHandler = 2,
-    GameHandler = 4
+enum class State {
+    Game = 1,
+    Menu = 2,
+    NameInput = 4,
+    HighScores = 8
 };
 
 class Keyboard {
@@ -20,7 +21,7 @@ class Keyboard {
         ButtonState(int state = GLFW_RELEASE, fseconds elapsed = fseconds{}, fseconds repeat = fseconds{});
     };
     struct Handler {
-        unsigned id;
+        State id;
         std::function<void()> func;
     };
     fseconds _repeatTime = fseconds(0.3f);
@@ -34,10 +35,10 @@ class Keyboard {
 public:
     Keyboard(Window* window);
     void advance(fseconds dt);
-    void onDown(int key, unsigned handlerId, std::function<void()> handler);
-    void onRepeat(int key, fseconds every, unsigned handlerId, std::function<void()> handler);    
+    void onDown(int key, State handlerId, std::function<void()> handler);
+    void onRepeat(int key, fseconds every, State handlerId, std::function<void()> handler);
     void stopRepeats(int key);
-    void enableHandler(unsigned id);
-    void disableHandler(unsigned id);
+    void enableHandler(State id);
+    void disableHandler(State id);
     bool isShiftPressed();
 };

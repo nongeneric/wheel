@@ -312,8 +312,8 @@ public:
     }
     void flip() {
         _paused = !_paused;
-        _keys->disableHandler(_paused ? GameHandler : MenuHandler);
-        _keys->enableHandler(_paused ? MenuHandler : GameHandler);
+        _keys->disableHandler(_paused ? State::Game : State::Menu);
+        _keys->enableHandler(_paused ? State::Menu : State::Game);
     }
 };
 
@@ -355,21 +355,41 @@ public:
     }
 };
 
-enum class State { Game, Menu, NameInput, HighScores };
-
 class StateManager {
     State _current;
     PauseManager* _pm;
     MenuController* _mc;
     HScreenManager* _hsm;
-    TextEdit* _te;    
+    TextEdit* _te;
+    Keyboard* _keys;
 public:
-    StateManager(PauseManager* pm, MenuController* mc, HScreenManager* hsm, TextEdit* te)
-        : _pm(pm), _mc(mc), _hsm(hsm), _te(te) { }
+    StateManager(PauseManager* pm, MenuController* mc, HScreenManager* hsm, TextEdit* te, Keyboard* keys)
+        : _current(State::Game), _pm(pm), _mc(mc), _hsm(hsm), _te(te), _keys(keys)
+    {
+        keys->enableHandler(State::Game);
+        // State::Game
+        _keys->onDown(GLFW_KEY_ESCAPE, State::Game, [&]() {
+            goTo(State::Menu);
+        });
+        // State::Menu
+        _mc->onValueChanged(nullptr, [&]() {
+            goTo(State::Game);
+        });
+        // State::NameInput
+        _keys->onDown(GLFW_KEY_ENTER, State::NameInput, [&]() {
+            goTo(State::HighScores);
+        });
+        // State::HighScores
+        _keys->onDown(GLFW_KEY_ESCAPE, State::HighScores, [&]() {
+            goTo(State::Menu);
+        });
+    }
 
     void goTo(State state) {
         if (_current == state)
             return;
+        _keys->disableHandler(_current);
+        _keys->enableHandler(state);
         if (_current == State::Game && state == State::Menu) {
             _pm->flip();
             _mc->show();
@@ -380,14 +400,14 @@ public:
             _mc->toCustomScreen();
         } else if (_current == State::HighScores && state == State::Menu) {
             _hsm->show(false);
-            _mc->back();
+            _mc->backFromCustomScreen();
         } else if (_current == State::Game && state == State::NameInput) {
             _pm->flip();
             _mc->toCustomScreen();
             _te->show(true);
-        } else if (_current == State::NameInput && state == State::HighScores) {
-            _mc->back();
+        } else if (_current == State::NameInput && state == State::HighScores) {            
             _te->show(false);
+            _hsm->show(true);
         } else {
             assert(false);
         }
@@ -426,7 +446,6 @@ int desktop_entry() {
     Window window("wheel", config.fullScreen, config.screenWidth, config.screenHeight);
     Keyboard keys(&window);
     PauseManager pm(&keys);
-    keys.enableHandler(GameHandler);
     MainProgramInfo program = createMainProgram();
     std::vector<MeshWrapper> meshes = genMeshes();
     Tetris tetris(g_TetrisHor, g_TetrisVert, Generator(), config.initialLevel);
@@ -470,48 +489,41 @@ int desktop_entry() {
     WindowLayout textEditLayout(&textEdit, 0, true);
     MenuController menu(&mainMenu, &keys);
 
-    StateManager stateManager(&pm, &menu, &hscreen, &textEdit);
-    textEdit.onEnter([&](){
-        stateManager.goTo(State::HighScores);
-    });
+    StateManager stateManager(&pm, &menu, &hscreen, &textEdit, &keys);
 
     FpsCounter fps;
     bool canManuallyMove;
     bool normalStep;
     bool nextPiece = false;
     bool exit = false;    
-    keys.onRepeat(GLFW_KEY_LEFT, fseconds(0.09f), GameHandler, [&]() {
+    keys.onRepeat(GLFW_KEY_LEFT, fseconds(0.09f), State::Game, [&]() {
         if (canManuallyMove) {
             tetris.moveLeft();
         }
     });
-    keys.onRepeat(GLFW_KEY_RIGHT, fseconds(0.09f), GameHandler, [&]() {
+    keys.onRepeat(GLFW_KEY_RIGHT, fseconds(0.09f), State::Game, [&]() {
         if (canManuallyMove) {
             tetris.moveRight();
         }
     });
-    keys.onDown(GLFW_KEY_UP, GameHandler, [&]() {
+    keys.onDown(GLFW_KEY_UP, State::Game, [&]() {
         if (canManuallyMove) {
             tetris.rotate();
         }
     });
-    keys.onRepeat(GLFW_KEY_DOWN, fseconds(0.03f), GameHandler, [&]() {
+    keys.onRepeat(GLFW_KEY_DOWN, fseconds(0.03f), State::Game, [&]() {
         if (!normalStep && canManuallyMove) {
             nextPiece |= tetris.step();
         }
     });
-    keys.onDown(GLFW_KEY_ESCAPE, GameHandler, [&]() {
-        stateManager.goTo(State::Menu);
-    });
-    keys.onDown(GLFW_KEY_LEFT, MenuHandler, [&]() {
+    keys.onDown(GLFW_KEY_LEFT, State::HighScores, [&]() { // TODO: move to highscore
         if (hscreen.show())
             hscreen.left();
     });
-    keys.onDown(GLFW_KEY_RIGHT, MenuHandler, [&]() {
+    keys.onDown(GLFW_KEY_RIGHT, State::HighScores, [&]() { // TODO: move to highscore
         if (hscreen.show())
             hscreen.right();
     });
-
     menu.onValueChanged(mainMenuStructure.resume, [&]() {
         stateManager.goTo(State::Game);
     });
@@ -527,15 +539,9 @@ int desktop_entry() {
     menu.onValueChanged(mainMenuStructure.hallOfFame, [&]() {
         stateManager.goTo(State::HighScores);
     });
-    menu.onLeaveCustomScreen([&]() {
-        //stateManager.goTo(State::Menu);
-    });
     menu.onValueChanged(mainMenuStructure.exit, [&]() {
         exit = true;
-    });
-    menu.onValueChanged(nullptr, [&]() {
-        stateManager.goTo(State::Game);
-    });
+    });    
     auto empty = [](){};
     menu.onValueChanged(optionsMenuStructure.back, [&]() { menu.back(); });
     menu.onValueChanged(optionsMenuStructure.fullscreen, empty);
@@ -617,8 +623,9 @@ int desktop_entry() {
             draw(mesh, program.U_WORLD, program.U_MVP, vpMatrix, program.program);
         }
 
-        if (tetris.getStats().gameOver) {
+        if (tetris.getStats().gameOver) {            
             stateManager.goTo(State::NameInput);
+            tetris.reset();
             hudList.setLine(4, gameOverText);
         }
 

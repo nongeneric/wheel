@@ -38,17 +38,17 @@ MenuController::MenuController(Menu *menu, Keyboard *keys)
 {
     setActiveMenu(menu, false);
     clearHighlights();
-    keys->onDown(GLFW_KEY_DOWN, MenuHandler, [&]() {
+    keys->onDown(GLFW_KEY_DOWN, State::Menu, [&]() {
         if (_customScreen)
             return;
         advanceFocus(1);
     });
-    keys->onDown(GLFW_KEY_UP, MenuHandler, [&]() {
+    keys->onDown(GLFW_KEY_UP, State::Menu, [&]() {
         if (_customScreen)
             return;
         advanceFocus(-1);
     });
-    keys->onDown(GLFW_KEY_ENTER, MenuHandler, [&]() {
+    keys->onDown(GLFW_KEY_ENTER, State::Menu, [&]() {
         if (_customScreen)
             return;
         if (_leaf->values().empty()) {
@@ -56,15 +56,15 @@ MenuController::MenuController(Menu *menu, Keyboard *keys)
             _handlers[_leaf]();
         }
     });
-    keys->onDown(GLFW_KEY_ESCAPE, MenuHandler, [&]() { back(); });
-    keys->onRepeat(GLFW_KEY_LEFT, fseconds(0.15f), MenuHandler, [&]() {
+    keys->onDown(GLFW_KEY_ESCAPE, State::Menu, [&]() { back(); });
+    keys->onRepeat(GLFW_KEY_LEFT, fseconds(0.15f), State::Menu, [&]() {
         if (_customScreen)
             return;
         if (_leaf->values().empty())
             return;
         advanceValue(-1, _leaf);
     });
-    keys->onRepeat(GLFW_KEY_RIGHT, fseconds(0.15f), MenuHandler, [&]() {
+    keys->onRepeat(GLFW_KEY_RIGHT, fseconds(0.15f), State::Menu, [&]() {
         if (_customScreen)
             return;
         if (_leaf->values().empty())
@@ -74,20 +74,19 @@ MenuController::MenuController(Menu *menu, Keyboard *keys)
 }
 
 void MenuController::back() {
+    if (_customScreen)
+        return;
     if (_history.size() > 0) {
         setActiveMenu(_history.top(), false);
         _history.pop();
-        if (_customScreen) {
-            _customScreen = false;
-            _onLeaveCustomScreen();
-        }
     } else {
         _handlers[nullptr]();
     }
 }
 
-void MenuController::onLeaveCustomScreen(std::function<void ()> handler) {
-    _onLeaveCustomScreen = handler;
+void MenuController::backFromCustomScreen() {
+    _customScreen = false;
+    back();
 }
 
 void MenuController::toCustomScreen() {

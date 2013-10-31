@@ -5,7 +5,7 @@ void Keyboard::invokeHandler(int key, const std::map<int, std::vector<Keyboard::
     auto it = handlers.find(key);
     if (it != end(handlers)) {
         for (Handler const& h : it->second) {
-            if (h.id & initialHandlersList) {
+            if ((unsigned)h.id & initialHandlersList) {
                 h.func();
             }
         }
@@ -38,7 +38,7 @@ void Keyboard::advance(fseconds dt) {
     }
 }
 
-void Keyboard::onDown(int key, unsigned handlerId, std::function<void ()> handler) {
+void Keyboard::onDown(int key, State handlerId, std::function<void ()> handler) {
     auto it = _prevStates.find(key);
     if (it == end(_prevStates)) {
         _prevStates[key] = { GLFW_RELEASE };
@@ -46,7 +46,7 @@ void Keyboard::onDown(int key, unsigned handlerId, std::function<void ()> handle
     _downHandlers[key].push_back({handlerId, handler});
 }
 
-void Keyboard::onRepeat(int key, fseconds every, unsigned handlerId, std::function<void ()> handler) {
+void Keyboard::onRepeat(int key, fseconds every, State handlerId, std::function<void ()> handler) {
     _prevStates[key] = { GLFW_RELEASE, fseconds(), every };
     _repeatHandlers[key].push_back({handlerId, handler});
     _activeRepeats[key] = true;
@@ -58,12 +58,12 @@ void Keyboard::stopRepeats(int key) {
     }
 }
 
-void Keyboard::enableHandler(unsigned id) {
-    _currentHandlerIds |= id;
+void Keyboard::enableHandler(State id) {
+    _currentHandlerIds |= (unsigned)id;
 }
 
-void Keyboard::disableHandler(unsigned id) {
-    _currentHandlerIds &= ~id;
+void Keyboard::disableHandler(State id) {
+    _currentHandlerIds &= ~(unsigned)id;
 }
 
 bool Keyboard::isShiftPressed() {
