@@ -100,7 +100,7 @@ public:
         unsigned color = 0;
         FreeImage_FillBackground(_fbitmap.get(), &color);
 
-        int pen_x = 0;
+        int pen_x = 5;
         int prev = 0;
         for (size_t i = 0; i < str.size(); ++i) {
             FT_UInt glyph_index = FT_Get_Char_Index(face, str[i]);

@@ -26,7 +26,7 @@ class Keyboard {
     fseconds _repeatTime = fseconds(0.3f);
     std::map<int, ButtonState> _prevStates;
     std::map<int, std::vector<Handler>> _downHandlers;
-    std::map<int, std::vector<Handler>> _repeatHandlers;
+    std::map<int, std::vector<Handler>> _repeatHandlers;    
     std::map<int, bool> _activeRepeats;
     Window* _window;
     unsigned _currentHandlerIds = 0;
@@ -35,8 +35,9 @@ public:
     Keyboard(Window* window);
     void advance(fseconds dt);
     void onDown(int key, unsigned handlerId, std::function<void()> handler);
-    void onRepeat(int key, fseconds every, unsigned handlerId, std::function<void()> handler);
+    void onRepeat(int key, fseconds every, unsigned handlerId, std::function<void()> handler);    
     void stopRepeats(int key);
     void enableHandler(unsigned id);
     void disableHandler(unsigned id);
+    bool isShiftPressed();
 };

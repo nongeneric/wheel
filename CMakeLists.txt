@@ -52,6 +52,8 @@ Widgets/MenuController.h
 Widgets/MenuController.cpp
 Widgets/Painter2D.h
 Widgets/Painter2D.cpp
+Widgets/TextEdit.h
+Widgets/TextEdit.cpp
 Tetris.h
 Tetris.cpp
 Program.h

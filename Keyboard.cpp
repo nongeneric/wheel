@@ -20,7 +20,7 @@ void Keyboard::advance(fseconds dt) {
         int prevState = pair.second.state;
         if (curState == GLFW_PRESS && prevState == GLFW_RELEASE) {
             invokeHandler(pair.first, _downHandlers);
-            invokeHandler(pair.first, _repeatHandlers);
+            invokeHandler(pair.first, _repeatHandlers);            
             _activeRepeats[pair.first] = true;
             pair.second.elapsed = fseconds();
         }
@@ -30,7 +30,7 @@ void Keyboard::advance(fseconds dt) {
                 _activeRepeats[pair.first])
         {
             pair.second.elapsed = fseconds();
-            invokeHandler(pair.first, _repeatHandlers);
+            invokeHandler(pair.first, _repeatHandlers);            
         }
         pair.second = { _window->getKey(pair.first),
                         pair.second.elapsed + dt,
@@ -64,6 +64,11 @@ void Keyboard::enableHandler(unsigned id) {
 
 void Keyboard::disableHandler(unsigned id) {
     _currentHandlerIds &= ~id;
+}
+
+bool Keyboard::isShiftPressed() {
+    return _window->getKey(GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
+           _window->getKey(GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
 }
 
 Keyboard::ButtonState::ButtonState(int state, fseconds elapsed, fseconds repeat)

@@ -19,8 +19,12 @@ void TetrisConfig::load(const std::string &fileName) {
     read_xml(fileName, pt);
     orthographic = pt.get("tetris.<xmlattr>.orthographic", true);
     fullScreen = pt.get("tetris.<xmlattr>.fullscreen", false);
-    screenWidth = pt.get("tetris.resolution.<xmlattr>.width", 600);
+    screenWidth = pt.get("tetris.resolution.<xmlattr>.width", 700);
     screenHeight = pt.get("tetris.resolution.<xmlattr>.height", 600);
     showFps = pt.get("tetris.<xmlattr>.showFps", false);
     initialLevel = pt.get("tetris.<xmlattr>.initialLevel", 0);
+}
+
+void TetrisConfig::save(const std::string &fileName) {
+    (void)fileName;
 }

@@ -3,13 +3,7 @@
 #include "IWidget.h"
 #include "SpreadAnimator.h"
 #include "TextLine.h"
-
-struct HighscoreRecord {
-    std::string name;
-    int lines;
-    int score;
-    int initialLevel;
-};
+#include "../Config.h"
 
 class Text;
 class HighscoreScreen : public IWidget {
