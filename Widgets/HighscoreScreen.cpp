@@ -8,14 +8,14 @@ HighscoreScreen::HighscoreLine::HighscoreLine(Text *text, std::vector<std::strin
     this->columns = columns;
     for (std::string col : columns) {
         textLines.emplace_back(text, 0.05);
-        textLines.back().set(col);
+        textLines.back().set(col);        
     }
 }
 
 float HighscoreScreen::HighscoreLine::width() {
     float w = 0;
-    for (auto& tl : textLines)
-        w = std::max(w, tl.desired().x);
+    for (auto& tl : textLines)        
+        w += tl.desired().x;
     return w;
 }
 
@@ -24,6 +24,10 @@ void HighscoreScreen::HighscoreLine::setTransform(glm::mat4 m) {
         tl.setTransform(m);
 }
 
+void HighscoreScreen::HighscoreLine::highlight(bool on) {
+    for (auto& tl : textLines)
+        tl.highlight(on);
+}
 
 std::vector<ISpreadAnimationLine *> HighscoreScreen::asAnimationLines() {
     std::vector<ISpreadAnimationLine*> res;
@@ -32,10 +36,20 @@ std::vector<ISpreadAnimationLine *> HighscoreScreen::asAnimationLines() {
     return res;
 }
 
-HighscoreScreen::HighscoreScreen(std::vector<HighscoreRecord> records, Text *text) {
+void HighscoreScreen::clearHighlights() {
+    for (unsigned i = 0; i < _lines.size() - 1; ++i) {
+        _lines[i].highlight(false);
+    }
+}
+
+HighscoreScreen::HighscoreScreen(Text *text)
+    : _text(text) { }
+
+void HighscoreScreen::setRecords(std::vector<HighscoreRecord> records) {
+    _lines.clear();
     int i = 1;
     for (HighscoreRecord rec : records) {
-        _lines.push_back(HighscoreLine(text, {
+        _lines.push_back(HighscoreLine(_text, {
             vformat("%d", i++),
             rec.name,
             vformat("%d", rec.lines),
@@ -44,8 +58,10 @@ HighscoreScreen::HighscoreScreen(std::vector<HighscoreRecord> records, Text *tex
         }));
     }
     rstd::reverse(_lines);
-    _lines.push_back(HighscoreLine(text, { "#", "Name", "Lines", "Score", "Lvl" }));
+    _lines.push_back(HighscoreLine(_text, { "#", "Name", "Lines", "Score", "Lvl" }));
+    _lines.back().highlight(true);
     _animator.reset(new SpreadAnimator(asAnimationLines()));
+    clearHighlights();
 }
 
 void HighscoreScreen::beginAnimating(bool assemble) {
@@ -65,6 +81,8 @@ void HighscoreScreen::draw() {
 }
 
 void HighscoreScreen::measure(glm::vec2, glm::vec2 framebuffer) {
+    _xMargin = 0.02 * framebuffer.x;
+    _yMargin = 0.02 * framebuffer.y;
     _columnWidths.resize(5);
     rstd::fill(_columnWidths, 0);
     float y = 0;
@@ -73,10 +91,10 @@ void HighscoreScreen::measure(glm::vec2, glm::vec2 framebuffer) {
             line.textLines[i].measure(glm::vec2{}, framebuffer);
             _columnWidths[i] = std::max(_columnWidths[i], line.textLines[i].desired().x);
         }
-        y += line.textLines.front().desired().y;
+        y += line.textLines.front().desired().y + _yMargin;
     }
-    _desired = glm::vec2 { rstd::accumulate(_columnWidths, .0f), y };
-    _xOffset = (framebuffer.x - rstd::accumulate(_columnWidths, .0f)) / 2;
+    float xMargins = (_columnWidths.size() - 1) * _xMargin;
+    _desired = glm::vec2 { rstd::accumulate(_columnWidths, .0f) + xMargins, y };
     _animator->calcWidthAfterMeasure(framebuffer.x);
 }
 
@@ -85,10 +103,10 @@ void HighscoreScreen::arrange(glm::vec2 pos, glm::vec2) {
     for (HighscoreLine& line : _lines) {
         float x = 0;
         for (unsigned i = 0; i < line.columns.size(); ++i) {
-            line.textLines[i].arrange(pos + glm::vec2 { x + _xOffset, y }, line.textLines[i].desired());
-            x += _columnWidths[i];
+            line.textLines[i].arrange(pos + glm::vec2 { x, y }, line.textLines[i].desired());
+            x += _columnWidths[i] + (i != line.columns.size() - 1 ? _xMargin : 0);
         }
-        y += line.textLines.front().desired().y;
+        y += line.textLines.front().desired().y + _yMargin;
     }
 }
 
@@ -97,3 +115,8 @@ glm::vec2 HighscoreScreen::desired() {
 }
 
 void HighscoreScreen::setTransform(glm::mat4) { }
+
+void HighscoreScreen::highlight(int i) {
+    clearHighlights();
+    _lines.at(_lines.size() - i - 2).highlight(true);
+}

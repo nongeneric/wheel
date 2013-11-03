@@ -13,15 +13,20 @@ class HighscoreScreen : public IWidget {
         std::vector<std::string> columns;
         float width() override;
         void setTransform(glm::mat4 m);
+        void highlight(bool on);
     };
     std::vector<HighscoreLine> _lines;
     glm::vec2 _desired;
     std::vector<float> _columnWidths;
-    float _xOffset;
     std::unique_ptr<SpreadAnimator> _animator;
     std::vector<ISpreadAnimationLine*> asAnimationLines();
+    Text* _text;
+    float _xMargin;
+    float _yMargin;
+    void clearHighlights();
 public:
-    HighscoreScreen(std::vector<HighscoreRecord> records, Text* text);
+    HighscoreScreen(Text* text);
+    void setRecords(std::vector<HighscoreRecord> records);
     void beginAnimating(bool assemble);
     void animate(fseconds dt) override;
     void draw();
@@ -29,4 +34,5 @@ public:
     void arrange(glm::vec2 pos, glm::vec2) override;
     glm::vec2 desired() override;
     void setTransform(glm::mat4) override;
+    void highlight(int i);
 };

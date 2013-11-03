@@ -21,11 +21,7 @@ std::string MenuLeaf::value() {
 }
 
 void MenuLeaf::highlight(bool on) {
-    if (on) {
-        _line.setColor(glm::vec3 { 1.0f, 1.0f, 1.0f});
-    } else {
-        _line.setColor(glm::vec3 { 0.7f, 0.7f, 0.7f});
-    }
+    _line.highlight(on);
 }
 
 void MenuLeaf::animate(fseconds) { }

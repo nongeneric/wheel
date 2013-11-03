@@ -18,8 +18,12 @@ void TextLine::set(std::string line) {
     _line = line;
 }
 
-void TextLine::setColor(glm::vec3 color) {
-    _elem.setColor(color);
+void TextLine::highlight(bool on) {
+    if (on) {
+        _elem.setColor(glm::vec3 { 1.0f, 1.0f, 1.0f});
+    } else {
+        _elem.setColor(glm::vec3 { 0.7f, 0.7f, 0.7f});
+    }
 }
 
 void TextLine::draw() {

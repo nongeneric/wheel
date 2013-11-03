@@ -58,11 +58,30 @@ void Keyboard::stopRepeats(int key) {
     }
 }
 
+std::string printActiveHandlers(unsigned ids) {
+    std::string res;
+    if (ids & (unsigned)State::Game) {
+        res += "Game ";
+    }
+    if (ids & (unsigned)State::HighScores) {
+        res += "HighScores ";
+    }
+    if (ids & (unsigned)State::Menu) {
+        res += "Menu ";
+    }
+    if (ids & (unsigned)State::NameInput) {
+        res += "NameInput ";
+    }
+    return res;
+}
+
 void Keyboard::enableHandler(State id) {
+    std::cout << "Keyboard's enableHandler: " << printActiveHandlers(_currentHandlerIds) << std::endl;
     _currentHandlerIds |= (unsigned)id;
 }
 
 void Keyboard::disableHandler(State id) {
+    std::cout << "Keyboard's disableHandler : " << printActiveHandlers(_currentHandlerIds) << std::endl;
     _currentHandlerIds &= ~(unsigned)id;
 }
 

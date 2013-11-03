@@ -185,9 +185,15 @@ public:
     }
 };
 
+std::string configName = "config.xml";
+
+void saveConfig(TetrisConfig& config) {
+    config.save(configName);
+}
+
 bool loadConfig(TetrisConfig& config) {
     try {
-        config.load("config.xml");
+        config.load(configName);
     } catch (...) {
         std::cout << "an error ocurred while loading the config file";
         return false;
@@ -282,20 +288,19 @@ OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig config, Text& text
 
 class WindowLayout {
     IWidget* _widget;
-    float _relHeight;
     bool _isCentered;
     glm::vec2 _prevFramebuffer;
 public:
-    WindowLayout(IWidget* widget, float relHeight, bool isCentered)
-        : _widget(widget), _relHeight(relHeight), _isCentered(isCentered) { }
+    WindowLayout(IWidget* widget, bool isCentered)
+        : _widget(widget), _isCentered(isCentered) { }
     void updateFramebuffer(glm::vec2 framebuffer) {
-        if (epseq(framebuffer, _prevFramebuffer))
-            return;
+//        if (epseq(framebuffer, _prevFramebuffer))
+//            return;
         _prevFramebuffer = framebuffer;
         _widget->measure(glm::vec2 {framebuffer.x, .0f}, framebuffer);
         glm::vec2 pos;
         if (_isCentered)
-            pos = glm::vec2 { .0f, (framebuffer.y - _widget->desired().y) * 0.5f };
+            pos = (framebuffer - _widget->desired()) * 0.5f;
         else
             pos = glm::vec2 { .0f, framebuffer.y - _widget->desired().y };
         _widget->arrange(pos, _widget->desired());
@@ -341,10 +346,20 @@ public:
         if (_show)
             _current->draw();
     }
-    void show(bool on) {
+    void show(bool on, int selectedLinesPos = -1, int selectedScorePos = -1) {
+        int selectedPos = -1;
+        if (selectedLinesPos != -1) {
+            _current = _lines;
+            selectedPos = selectedLinesPos;
+        } else if (selectedScorePos != -1) {
+            _current = _score;
+            selectedPos = selectedScorePos;
+        }
+        if (selectedPos != -1)
+            _current->highlight(selectedPos);
         _show = on;
         if (_show) {
-            _current->beginAnimating(true);
+            _current->beginAnimating(true);            
         }
     }
     bool show() const {
@@ -355,16 +370,71 @@ public:
     }
 };
 
+class GameOverScreen : public IWidget {
+    TextEdit _te;
+    TextLine _gameOver;
+    TextLine _pressEnter;
+    glm::vec2 _desired;
+    bool _newHighScore;
+    glm::vec2 _framebuffer;
+    float centerX(float width, float max) {
+        return (max - width) / 2;
+    }
+
+public:
+    GameOverScreen(Keyboard* keys, Text* text)
+        : _te(keys, text), _gameOver(text, 0.07f), _pressEnter(text, 0.05f)
+    {
+        _pressEnter.set("Press ENTER to continue");
+    }
+    std::string name() {
+        return _te.text();
+    }
+    void animate(fseconds) override { }
+    void draw() override {
+        _gameOver.draw();
+        _pressEnter.draw();
+        if (_newHighScore)
+            _te.draw();
+    }
+    void measure(glm::vec2 available, glm::vec2 framebuffer) override {
+        _framebuffer = framebuffer;
+        _desired = glm::vec2 { .0f, framebuffer.y };
+        for (auto w : std::initializer_list<IWidget*>{ &_te, &_gameOver, &_pressEnter }) {
+            w->measure(available, framebuffer);
+            _desired.x = std::max(_desired.x, w->desired().x);
+        }
+    }
+    void arrange(glm::vec2 pos, glm::vec2) override {
+        _gameOver.arrange(pos + glm::vec2 { centerX(_gameOver.desired().x, _desired.x), 0.75f * _framebuffer.y }, _gameOver.desired());
+        _pressEnter.arrange(pos + glm::vec2 { centerX(_pressEnter.desired().x, _desired.x), 0.1f * _framebuffer.y }, _pressEnter.desired());
+        _te.arrange(pos + glm::vec2 { centerX(_te.desired().x, _desired.x), 0.5f * _framebuffer.y}, _te.desired());
+    }
+    glm::vec2 desired() override {
+        return _desired;
+    }
+    void setTransform(glm::mat4) override { }
+    void show(bool on, bool newHighScore) {        
+        _te.show(on);
+        _newHighScore = newHighScore;
+        _gameOver.set(newHighScore ? "New Highscore!" : "Game Over!");
+    }
+};
+
 class StateManager {
     State _current;
     PauseManager* _pm;
     MenuController* _mc;
     HScreenManager* _hsm;
-    TextEdit* _te;
+    GameOverScreen* _gos;
     Keyboard* _keys;
+
+    int _newLinesHighscorePos;
+    int _newScoreHighscorePos;
+    std::function<void(std::string)> _nameUpdater;
 public:
-    StateManager(PauseManager* pm, MenuController* mc, HScreenManager* hsm, TextEdit* te, Keyboard* keys)
-        : _current(State::Game), _pm(pm), _mc(mc), _hsm(hsm), _te(te), _keys(keys)
+    StateManager(PauseManager* pm, MenuController* mc, HScreenManager* hsm, GameOverScreen* te, Keyboard* keys)
+        : _current(State::Game), _pm(pm), _mc(mc), _hsm(hsm), _gos(te), _keys(keys)
     {
         keys->enableHandler(State::Game);
         // State::Game
@@ -377,7 +447,7 @@ public:
         });
         // State::NameInput
         _keys->onDown(GLFW_KEY_ENTER, State::NameInput, [&]() {
-            goTo(State::HighScores);
+            goToHighscoresState(_newLinesHighscorePos, _newScoreHighscorePos);
         });
         // State::HighScores
         _keys->onDown(GLFW_KEY_ESCAPE, State::HighScores, [&]() {
@@ -385,29 +455,51 @@ public:
         });
     }
 
+    void updateKeysHandlers(State newState) {
+        _keys->disableHandler(_current);
+        _keys->enableHandler(newState);
+    }
+
+    void goToHighscoresState(int selectedLinesPos = -1, int selectedScorePos = -1) {
+        updateKeysHandlers(State::HighScores);
+        if (_current == State::Menu) {
+            _hsm->show(true);
+            _mc->toCustomScreen();
+        } else if (_current == State::NameInput) {
+            _nameUpdater(_gos->name());
+            _gos->show(false, true);
+            _hsm->show(true, selectedLinesPos, selectedScorePos);
+        }
+        _current = State::HighScores;
+    }
+
+    void goToNameInputState(int newLinesHighscorePos, int newScoreHighscorePos, std::function<void(std::string)> nameUpdater) {
+        updateKeysHandlers(State::NameInput);
+        _newLinesHighscorePos = newLinesHighscorePos;
+        _newScoreHighscorePos = newScoreHighscorePos;
+        _nameUpdater = nameUpdater;
+        if (_current == State::Game) {
+           _pm->flip();
+           _mc->toCustomScreen();
+           _gos->show(true, newLinesHighscorePos != -1 || newScoreHighscorePos != -1);
+        } else {
+            assert(false);
+        }
+        _current = State::NameInput;
+    }
+
     void goTo(State state) {
         if (_current == state)
             return;
-        _keys->disableHandler(_current);
-        _keys->enableHandler(state);
+        updateKeysHandlers(state);
         if (_current == State::Game && state == State::Menu) {
             _pm->flip();
             _mc->show();
         } else if (_current == State::Menu && state == State::Game) {
-            _pm->flip();
-        } else if (_current == State::Menu && state == State::HighScores) {
-            _hsm->show(true);
-            _mc->toCustomScreen();
+            _pm->flip();        
         } else if (_current == State::HighScores && state == State::Menu) {
             _hsm->show(false);
             _mc->backFromCustomScreen();
-        } else if (_current == State::Game && state == State::NameInput) {
-            _pm->flip();
-            _mc->toCustomScreen();
-            _te->show(true);
-        } else if (_current == State::NameInput && state == State::HighScores) {            
-            _te->show(false);
-            _hsm->show(true);
         } else {
             assert(false);
         }
@@ -421,7 +513,7 @@ public:
         } else if (_current == State::Menu) {
             _mc->advance(dt);
         } else if (_current == State::NameInput) {
-            _te->animate(dt);
+            _gos->animate(dt);
         }
     }
     void draw() {
@@ -432,10 +524,28 @@ public:
         } else if (_current == State::Menu) {
             _mc->draw();
         } else if (_current == State::NameInput) {
-            _te->draw();
+            _gos->draw();
         }
     }
 };
+
+int updateHighscores(HighscoreRecord newRecord, std::vector<HighscoreRecord>& known, bool lines) {
+    auto getter = [lines](HighscoreRecord r) {
+        return lines ? r.lines : r.score;
+    };
+    auto isLeftWorse = [&](HighscoreRecord left, HighscoreRecord right) {
+        bool rightHasBetterLevel = left.initialLevel < right.initialLevel;
+        return getter(left) < getter(right) ||
+               ((getter(left) == getter(right)) && rightHasBetterLevel);
+    };
+    if (known.size() < 6 || isLeftWorse(known.back(), newRecord)) {
+        known.push_back(newRecord);
+        std::sort(begin(known), end(known), isLeftWorse);
+        rstd::reverse(known);
+        return std::distance(begin(known), std::find(begin(known), end(known), newRecord));
+    }
+    return -1;
+}
 
 int desktop_entry() {
     TetrisConfig config;
@@ -460,13 +570,10 @@ int desktop_entry() {
     fseconds elapsed;
     fseconds wait;
 
-    Text text;
-    CrispBitmap hudGameOver;
+    Text text;    
 
-    HudList hudList(5, &text, 0.04f);
-    WindowLayout hudLayout(&hudList, 0.3f, false);
-    std::string gameOverText = "Game Over!";
-    std::string pauseText = "PAUSED";
+    HudList hudList(4, &text, 0.04f);
+    WindowLayout hudLayout(&hudList, false);
     fseconds delay = fseconds(1.0f);
 
     Painter2D p2d;
@@ -474,22 +581,25 @@ int desktop_entry() {
     //p2d.rect(glm::vec2 { 0, 0.45f }, glm::vec2 { 0.3f, 0.1f }, glm::vec4 {0.5, 0.5, 0.5, 0.5});
 
     Menu mainMenu(&text), optionsMenu(&text);
-    WindowLayout mainMenuLayout(&mainMenu, 0.4f, true);
-    WindowLayout optionsMenuLayout(&optionsMenu, 0.4f, true);
+    WindowLayout mainMenuLayout(&mainMenu, true);
+    WindowLayout optionsMenuLayout(&optionsMenu, true);
     MainMenuStructure mainMenuStructure = initMainMenu(mainMenu, text);
     OptionsMenuStructure optionsMenuStructure = initOptionsMenu(optionsMenu, config, text);
 
-    HighscoreScreen hscreenLines({ { "Test Name", 10, 11, 5 }, { "My name", 5, 2000, 3 } }, &text);
-    HighscoreScreen hscreenScore({ { "SCORE!!!", 10, 11, 5 } }, &text);
-    WindowLayout hscreenLinesLayout(&hscreenLines, 0.05, true);
-    WindowLayout hscreenScoreLayout(&hscreenScore, 0.05, true);
+    HighscoreScreen hscreenLines(&text);
+    hscreenLines.setRecords(config.highscoreLines);
+    HighscoreScreen hscreenScore(&text);
+    hscreenScore.setRecords(config.highscoreScore);
+
+    WindowLayout hscreenLinesLayout(&hscreenLines, true);
+    WindowLayout hscreenScoreLayout(&hscreenScore, true);
     HScreenManager hscreen(&hscreenLines, &hscreenScore);
 
-    TextEdit textEdit(&keys, &text);
-    WindowLayout textEditLayout(&textEdit, 0, true);
+    GameOverScreen gameOverScreen(&keys, &text);
+    WindowLayout gameOverScreenLayout(&gameOverScreen, true);
     MenuController menu(&mainMenu, &keys);
 
-    StateManager stateManager(&pm, &menu, &hscreen, &textEdit, &keys);
+    StateManager stateManager(&pm, &menu, &hscreen, &gameOverScreen, &keys);
 
     FpsCounter fps;
     bool canManuallyMove;
@@ -528,8 +638,7 @@ int desktop_entry() {
         stateManager.goTo(State::Game);
     });
     menu.onValueChanged(mainMenuStructure.restart, [&]() {
-        wait = fseconds();
-        hudList.setLine(4, "!");
+        wait = fseconds();        
         tetris.reset();
         pm.flip();
     });
@@ -537,11 +646,11 @@ int desktop_entry() {
         menu.setActiveMenu(&optionsMenu);
     });
     menu.onValueChanged(mainMenuStructure.hallOfFame, [&]() {
-        stateManager.goTo(State::HighScores);
+        stateManager.goToHighscoresState();
     });
     menu.onValueChanged(mainMenuStructure.exit, [&]() {
         exit = true;
-    });    
+    });
     auto empty = [](){};
     menu.onValueChanged(optionsMenuStructure.back, [&]() { menu.back(); });
     menu.onValueChanged(optionsMenuStructure.fullscreen, empty);
@@ -567,7 +676,7 @@ int desktop_entry() {
         optionsMenuLayout.updateFramebuffer(framebuffer);
         hscreenLinesLayout.updateFramebuffer(framebuffer);
         hscreenScoreLayout.updateFramebuffer(framebuffer);
-        textEditLayout.updateFramebuffer(framebuffer);        
+        gameOverScreenLayout.updateFramebuffer(framebuffer);
 
         auto now = chrono::high_resolution_clock::now();
         fseconds dt = chrono::duration_cast<fseconds>(now - past);
@@ -623,10 +732,23 @@ int desktop_entry() {
             draw(mesh, program.U_WORLD, program.U_MVP, vpMatrix, program.program);
         }
 
-        if (tetris.getStats().gameOver) {            
-            stateManager.goTo(State::NameInput);
+        auto stats = tetris.getStats();
+        if (stats.gameOver) {
+            HighscoreRecord newRecord { "", stats.lines, stats.score, config.initialLevel };
+            int newLinesHighscore = updateHighscores(newRecord, config.highscoreLines, true);
+            int newScoreHighscore = updateHighscores(newRecord, config.highscoreScore, false);
+            stateManager.goToNameInputState(newLinesHighscore, newScoreHighscore, [&](std::string newName) {
+                if (newLinesHighscore != -1) {
+                    config.highscoreLines.at(newLinesHighscore).name = newName;
+                }
+                if (newScoreHighscore != -1) {
+                    config.highscoreScore.at(newScoreHighscore).name = newName;
+                }
+                hscreenLines.setRecords(config.highscoreLines);
+                hscreenScore.setRecords(config.highscoreScore);
+                saveConfig(config);
+            });
             tetris.reset();
-            hudList.setLine(4, gameOverText);
         }
 
         glDisable(GL_DEPTH_TEST);
@@ -634,9 +756,7 @@ int desktop_entry() {
         hudList.draw();
         if (pm.paused()) {
             p2d.draw();
-            menu.draw();
-            textEdit.draw();
-            hscreen.draw();
+            stateManager.draw();
         }
 
         glEnable(GL_DEPTH_TEST);

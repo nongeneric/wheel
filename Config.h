@@ -5,9 +5,10 @@
 
 struct HighscoreRecord {
     std::string name;
-    int lines;
-    int score;
-    int initialLevel;
+    unsigned lines;
+    unsigned score;
+    unsigned initialLevel;
+    bool operator==(HighscoreRecord const&);
 };
 
 struct TetrisConfig {

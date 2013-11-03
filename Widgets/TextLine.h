@@ -15,7 +15,7 @@ class TextLine : public IWidget {
 public:
     TextLine(Text* text, float relHeight);
     void set(std::string line);
-    void setColor(glm::vec3 color);
+    void highlight(bool on);
     void animate(fseconds) override { }
     void draw() override;
     void measure(glm::vec2 size, glm::vec2 framebuffer) override;
