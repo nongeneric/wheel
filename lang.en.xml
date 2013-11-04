@@ -16,6 +16,7 @@
 	<string id="GameOverScreen_NewHighscore" value="New Highscore!"/>
 	<string id="GameOverScreen_GameOver" value="Game Over!"/>
 	<string id="GameOverScreen_PressEnter" value="Press [ENTER] to continue"/>
+	<string id="GameOverScreen_EnterYourName" value="Enter your name:"/>
 	<string id="HallOfFame_Name" value="Name"/>
 	<string id="HallOfFame_Lines" value="Lines"/>
 	<string id="HallOfFame_Score" value="Score"/>

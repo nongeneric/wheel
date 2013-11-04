@@ -368,6 +368,7 @@ class GameOverScreen : public IWidget {
     TextEdit _te;
     TextLine _gameOver;
     TextLine _pressEnter;
+    TextLine _enterYourName;
     glm::vec2 _desired;
     bool _newHighScore;
     glm::vec2 _framebuffer;
@@ -379,11 +380,12 @@ class GameOverScreen : public IWidget {
 
 public:
     GameOverScreen(Keyboard* keys, Text* text, TetrisConfig* config)
-        : _te(keys, text), _gameOver(text, 0.07f), _pressEnter(text, 0.03f)
+        : _te(keys, text), _gameOver(text, 0.07f), _pressEnter(text, 0.03f), _enterYourName(text, 0.045f)
     {
         _strNewHighScore = config->string(StringID::GameOverScreen_NewHighscore);
         _strGameOver = config->string(StringID::GameOverScreen_GameOver);
         _pressEnter.set(config->string(StringID::GameOverScreen_PressEnter));
+        _enterYourName.set(config->string(StringID::GameOverScreen_EnterYourName));
     }
     std::string name() {
         return _te.text();
@@ -392,21 +394,25 @@ public:
     void draw() override {
         _gameOver.draw();
         _pressEnter.draw();
-        if (_newHighScore)
+        if (_newHighScore) {
             _te.draw();
+            _enterYourName.draw();
+        }
     }
     void measure(glm::vec2 available, glm::vec2 framebuffer) override {
         _framebuffer = framebuffer;
         _desired = glm::vec2 { .0f, framebuffer.y };
-        for (auto w : std::initializer_list<IWidget*>{ &_te, &_gameOver, &_pressEnter }) {
+        for (auto w : std::initializer_list<IWidget*>{ &_te, &_gameOver, &_pressEnter, &_enterYourName }) {
             w->measure(available, framebuffer);
             _desired.x = std::max(_desired.x, w->desired().x);
         }
     }
     void arrange(glm::vec2 pos, glm::vec2) override {
         _gameOver.arrange(pos + glm::vec2 { centerX(_gameOver.desired().x, _desired.x), 0.75f * _framebuffer.y }, _gameOver.desired());
+        _enterYourName.arrange(pos + glm::vec2 { centerX(_enterYourName.desired().x, _desired.x), 0.65f * _framebuffer.y }, _enterYourName.desired());
         _pressEnter.arrange(pos + glm::vec2 { centerX(_pressEnter.desired().x, _desired.x), 0.1f * _framebuffer.y }, _pressEnter.desired());
-        _te.arrange(pos + glm::vec2 { centerX(_te.desired().x, _desired.x), 0.5f * _framebuffer.y}, _te.desired());
+        _te.arrange(pos + glm::vec2 { centerX(_te.desired().x, _desired.x), 0.4f * _framebuffer.y}, _te.desired());
+
     }
     glm::vec2 desired() override {
         return _desired;

@@ -16,6 +16,7 @@
 	<string id="GameOverScreen_NewHighscore" value="Новый рекорд!"/>
 	<string id="GameOverScreen_GameOver" value="Конец игры!"/>
 	<string id="GameOverScreen_PressEnter" value="Нажмите [ENTER] для продолжения"/>
+	<string id="GameOverScreen_EnterYourName" value="Введите свое имя:"/>
 	<string id="HallOfFame_Name" value="Имя"/>
 	<string id="HallOfFame_Lines" value="Линий"/>
 	<string id="HallOfFame_Score" value="Очков"/>

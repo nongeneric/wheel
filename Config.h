@@ -29,6 +29,7 @@ struct HighscoreRecord {
     X(GameOverScreen_NewHighscore) \
     X(GameOverScreen_GameOver) \
     X(GameOverScreen_PressEnter) \
+    X(GameOverScreen_EnterYourName) \
     X(HallOfFame_Name) \
     X(HallOfFame_Lines) \
     X(HallOfFame_Score) \

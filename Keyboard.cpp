@@ -29,8 +29,8 @@ void Keyboard::advance(fseconds dt) {
                 pair.second.elapsed > pair.second.repeat &&
                 _activeRepeats[pair.first])
         {
-            pair.second.elapsed = fseconds();
-            invokeHandler(pair.first, _repeatHandlers);            
+            pair.second.elapsed = pair.second.elapsed - pair.second.repeat;
+            invokeHandler(pair.first, _repeatHandlers);
         }
         pair.second = { _window->getKey(pair.first),
                         pair.second.elapsed + dt,
