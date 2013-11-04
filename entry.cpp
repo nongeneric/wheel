@@ -552,6 +552,9 @@ int updateHighscores(HighscoreRecord newRecord, std::vector<HighscoreRecord>& kn
         known.push_back(newRecord);
         std::sort(begin(known), end(known), isLeftWorse);
         rstd::reverse(known);
+        if (known.size() > 6) {
+            known.resize(6);
+        }
         return std::distance(begin(known), std::find(begin(known), end(known), newRecord));
     }
     return -1;
