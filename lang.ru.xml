@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<strings>
+	<string id="MainMenu_Resume" value="Продолжить"/>
+	<string id="MainMenu_Restart" value="Перезапустить"/>
+	<string id="MainMenu_Options" value="Настройки"/>
+	<string id="MainMenu_HallOfFame" value="Рекорды"/>
+	<string id="MainMenu_Exit" value="Выход"/>
+	<string id="OptionsMenu_Back" value="Назад"/>
+	<string id="OptionsMenu_Resolution" value="Разрешение"/>
+	<string id="OptionsMenu_Fullscreen" value="Полный экран"/>
+	<string id="OptionsMenu_InitialLevel" value="Начальный уровень"/>
+	<string id="HUD_Lines" value="Линий: %d"/>
+	<string id="HUD_Score" value="Очков: %d"/>
+	<string id="HUD_Level" value="Уровень: %d"/>
+	<string id="HUD_FPS" value="FPS: %d"/>
+	<string id="GameOverScreen_NewHighscore" value="Новый рекорд!"/>
+	<string id="GameOverScreen_GameOver" value="Конец игры!"/>
+	<string id="GameOverScreen_PressEnter" value="Нажмите [ENTER] для продолжения"/>
+	<string id="HallOfFame_Name" value="Имя"/>
+	<string id="HallOfFame_Lines" value="Линий"/>
+	<string id="HallOfFame_Score" value="Очков"/>
+	<string id="HallOfFame_Level" value="Уровень"/>
+</strings>

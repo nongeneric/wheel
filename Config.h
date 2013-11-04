@@ -14,7 +14,25 @@ struct HighscoreRecord {
 
 #define STRING_ID_LIST \
     X(MainMenu_Resume) \
-    X(MainMenu_Exit)
+    X(MainMenu_Restart) \
+    X(MainMenu_Options) \
+    X(MainMenu_HallOfFame) \
+    X(MainMenu_Exit) \
+    X(OptionsMenu_Back) \
+    X(OptionsMenu_Resolution) \
+    X(OptionsMenu_Fullscreen) \
+    X(OptionsMenu_InitialLevel) \
+    X(HUD_Lines) \
+    X(HUD_Score) \
+    X(HUD_Level) \
+    X(HUD_FPS) \
+    X(GameOverScreen_NewHighscore) \
+    X(GameOverScreen_GameOver) \
+    X(GameOverScreen_PressEnter) \
+    X(HallOfFame_Name) \
+    X(HallOfFame_Lines) \
+    X(HallOfFame_Score) \
+    X(HallOfFame_Level)
 
 #define X(s) s,
 enum class StringID {

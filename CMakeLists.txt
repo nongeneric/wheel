@@ -16,6 +16,8 @@ include_directories(SYSTEM $ENV{LOCAL_DIR}/include/freetype2)
 
 FILE(COPY cube.ply DESTINATION .)
 FILE(COPY LiberationSans-Regular.ttf DESTINATION .)
+FILE(COPY lang.en.xml DESTINATION .)
+FILE(COPY lang.ru.xml DESTINATION .)
 
 set(SRC_LIST
 Camera.h

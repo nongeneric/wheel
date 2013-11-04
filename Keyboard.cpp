@@ -92,3 +92,14 @@ bool Keyboard::isShiftPressed() {
 
 Keyboard::ButtonState::ButtonState(int state, fseconds elapsed, fseconds repeat)
     : state(state), elapsed(elapsed), repeat(repeat) { }
+
+
+std::string strState(State state) {
+    switch (state) {
+    case State::Game: return "Game";
+    case State::HighScores: return "HighScores";
+    case State::Menu: return "Menu";
+    case State::NameInput: return "NameInput";
+    default: assert(false); return "";
+    }
+}

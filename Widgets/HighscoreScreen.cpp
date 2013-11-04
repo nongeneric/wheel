@@ -42,8 +42,14 @@ void HighscoreScreen::clearHighlights() {
     }
 }
 
-HighscoreScreen::HighscoreScreen(Text *text)
-    : _text(text) { }
+HighscoreScreen::HighscoreScreen(Text *text, TetrisConfig* config)
+    : _text(text)
+{
+    _strName = config->string(StringID::HallOfFame_Name);
+    _strLines = config->string(StringID::HallOfFame_Lines);
+    _strScore = config->string(StringID::HallOfFame_Score);
+    _strLevel = config->string(StringID::HallOfFame_Level);
+}
 
 void HighscoreScreen::setRecords(std::vector<HighscoreRecord> records) {
     _lines.clear();
@@ -58,7 +64,7 @@ void HighscoreScreen::setRecords(std::vector<HighscoreRecord> records) {
         }));
     }
     rstd::reverse(_lines);
-    _lines.push_back(HighscoreLine(_text, { "#", "Name", "Lines", "Score", "Lvl" }));
+    _lines.push_back(HighscoreLine(_text, { "#", _strName, _strLines, _strScore, _strLevel }));
     _lines.back().highlight(true);
     _animator.reset(new SpreadAnimator(asAnimationLines()));
     clearHighlights();

@@ -42,7 +42,7 @@ std::string TetrisConfig::string(StringID id) {
     auto it = _strings.find(id);
     if (it != end(_strings))
         return it->second;
-    return "#NOVALUE";
+    throw std::runtime_error("no string present");
 }
 
 void TetrisConfig::load() {

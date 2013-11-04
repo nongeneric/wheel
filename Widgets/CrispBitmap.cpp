@@ -78,7 +78,7 @@ CrispBitmap::~CrispBitmap()
 { }
 
 void CrispBitmap::setBitmap(BitmapPtr bitmap) {
-    assert(FreeImage_GetBPP(bitmap.get()) == 8);
+    //assert(FreeImage_GetBPP(bitmap.get()) == 8);
     m->width = FreeImage_GetWidth(bitmap.get());
     m->height = FreeImage_GetHeight(bitmap.get());
     m->tex.setImage(bitmap);

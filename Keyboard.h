@@ -13,6 +13,8 @@ enum class State {
     HighScores = 8
 };
 
+std::string strState(State);
+
 class Keyboard {
     struct ButtonState {
         int state;

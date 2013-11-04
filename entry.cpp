@@ -240,9 +240,9 @@ struct MainMenuStructure {
 MainMenuStructure initMainMenu(Menu& menu, Text& text, TetrisConfig& config) {
     MainMenuStructure res;
     res.resume = new MenuLeaf(&text, {}, config.string(StringID::MainMenu_Resume), 0.05);
-    res.restart = new MenuLeaf(&text, {}, "Restart", 0.05);
-    res.options = new MenuLeaf(&text, {}, "Options", 0.05);
-    res.hallOfFame = new MenuLeaf(&text, {}, "Hall of fame", 0.05);
+    res.restart = new MenuLeaf(&text, {}, config.string(StringID::MainMenu_Restart), 0.05);
+    res.options = new MenuLeaf(&text, {}, config.string(StringID::MainMenu_Options), 0.05);
+    res.hallOfFame = new MenuLeaf(&text, {}, config.string(StringID::MainMenu_HallOfFame), 0.05);
     res.exit = new MenuLeaf(&text, {}, config.string(StringID::MainMenu_Exit), 0.05);
     menu.addLeaf(res.resume);
     menu.addLeaf(res.restart);
@@ -266,13 +266,13 @@ std::vector<std::string> genNumbers(int count) {
     return res;
 }
 
-OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig config, Text& text) {
+OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig& config, Text& text) {
     OptionsMenuStructure res;
     int speed = std::min(config.initialLevel, 19u);
-    res.back = new MenuLeaf(&text, {}, "Back", 0.05);
-    (res.initialSpeed = new MenuLeaf(&text, genNumbers(20), "Initial speed", 0.05f))->setValue(vformat("%d", speed));
-    (res.fullscreen = new MenuLeaf(&text, {"On", "Off"}, "Initial speed", 0.05f))->setValue(config.fullScreen ? "On" : "Off");
-    (res.resolution = new MenuLeaf(&text, {"1920x1080"}, "1920x1080", 0.05f))->setValue("1920x1080");
+    res.back = new MenuLeaf(&text, {}, config.string(StringID::OptionsMenu_Back), 0.05);
+    (res.initialSpeed = new MenuLeaf(&text, genNumbers(20), config.string(StringID::OptionsMenu_InitialLevel), 0.05f))->setValue(vformat("%d", speed));
+    (res.fullscreen = new MenuLeaf(&text, {"On", "Off"}, config.string(StringID::OptionsMenu_Fullscreen), 0.05f))->setValue(config.fullScreen ? "On" : "Off");
+    (res.resolution = new MenuLeaf(&text, {"1920x1080"}, config.string(StringID::OptionsMenu_Resolution), 0.05f))->setValue("1920x1080");
     menu.addLeaf(res.back);
     menu.addLeaf(res.initialSpeed);
     menu.addLeaf(res.fullscreen);
@@ -371,15 +371,19 @@ class GameOverScreen : public IWidget {
     glm::vec2 _desired;
     bool _newHighScore;
     glm::vec2 _framebuffer;
+    std::string _strNewHighScore;
+    std::string _strGameOver;
     float centerX(float width, float max) {
         return (max - width) / 2;
     }
 
 public:
-    GameOverScreen(Keyboard* keys, Text* text)
-        : _te(keys, text), _gameOver(text, 0.07f), _pressEnter(text, 0.05f)
+    GameOverScreen(Keyboard* keys, Text* text, TetrisConfig* config)
+        : _te(keys, text), _gameOver(text, 0.07f), _pressEnter(text, 0.03f)
     {
-        _pressEnter.set("Press ENTER to continue");
+        _strNewHighScore = config->string(StringID::GameOverScreen_NewHighscore);
+        _strGameOver = config->string(StringID::GameOverScreen_GameOver);
+        _pressEnter.set(config->string(StringID::GameOverScreen_PressEnter));
     }
     std::string name() {
         return _te.text();
@@ -411,7 +415,7 @@ public:
     void show(bool on, bool newHighScore) {        
         _te.show(on);
         _newHighScore = newHighScore;
-        _gameOver.set(newHighScore ? "New Highscore!" : "Game Over!");
+        _gameOver.set(newHighScore ? _strNewHighScore : _strGameOver);
     }
 };
 
@@ -426,6 +430,9 @@ class StateManager {
     int _newLinesHighscorePos;
     int _newScoreHighscorePos;
     std::function<void(std::string)> _nameUpdater;
+    void logStateChange(State oldState, State newState) {
+        std::cout << "State: " << strState(oldState) << " -> " << strState(newState) << std::endl;
+    }
 public:
     StateManager(PauseManager* pm, MenuController* mc, HScreenManager* hsm, GameOverScreen* te, Keyboard* keys)
         : _current(State::Game), _pm(pm), _mc(mc), _hsm(hsm), _gos(te), _keys(keys)
@@ -441,7 +448,10 @@ public:
         });
         // State::NameInput
         _keys->onDown(GLFW_KEY_ENTER, State::NameInput, [&]() {
-            goToHighscoresState(_newLinesHighscorePos, _newScoreHighscorePos);
+            if (_newLinesHighscorePos == -1 && _newScoreHighscorePos == -1)
+                goTo(State::Menu);
+            else
+                goToHighscoresState(_newLinesHighscorePos, _newScoreHighscorePos);
         });
         // State::HighScores
         _keys->onDown(GLFW_KEY_ESCAPE, State::HighScores, [&]() {
@@ -464,6 +474,7 @@ public:
             _gos->show(false, true);
             _hsm->show(true, selectedLinesPos, selectedScorePos);
         }
+        logStateChange(_current, State::HighScores);
         _current = State::HighScores;
     }
 
@@ -479,6 +490,7 @@ public:
         } else {
             assert(false);
         }
+        logStateChange(_current, State::NameInput);
         _current = State::NameInput;
     }
 
@@ -494,9 +506,13 @@ public:
         } else if (_current == State::HighScores && state == State::Menu) {
             _hsm->show(false);
             _mc->backFromCustomScreen();
+        } else if (_current == State::NameInput && state == State::Menu) {
+            _gos->show(false, false);
+            _mc->backFromCustomScreen();
         } else {
             assert(false);
         }
+        logStateChange(_current, state);
         _current = state;
     }
     void advance(fseconds dt) {
@@ -580,16 +596,16 @@ int desktop_entry() {
     MainMenuStructure mainMenuStructure = initMainMenu(mainMenu, text, config);
     OptionsMenuStructure optionsMenuStructure = initOptionsMenu(optionsMenu, config, text);
 
-    HighscoreScreen hscreenLines(&text);
+    HighscoreScreen hscreenLines(&text, &config);
     hscreenLines.setRecords(config.highscoreLines);
-    HighscoreScreen hscreenScore(&text);
+    HighscoreScreen hscreenScore(&text, &config);
     hscreenScore.setRecords(config.highscoreScore);
 
     WindowLayout hscreenLinesLayout(&hscreenLines, true);
     WindowLayout hscreenScoreLayout(&hscreenScore, true);
     HScreenManager hscreen(&hscreenLines, &hscreenScore);
 
-    GameOverScreen gameOverScreen(&keys, &text);
+    GameOverScreen gameOverScreen(&keys, &text, &config);
     WindowLayout gameOverScreenLayout(&gameOverScreen, true);
     MenuController menu(&mainMenu, &keys);
 
@@ -632,9 +648,9 @@ int desktop_entry() {
         stateManager.goTo(State::Game);
     });
     menu.onValueChanged(mainMenuStructure.restart, [&]() {
-        wait = fseconds();        
+        wait = fseconds();
         tetris.reset();
-        pm.flip();
+        stateManager.goTo(State::Game);
     });
     menu.onValueChanged(mainMenuStructure.options, [&]() {
         menu.setActiveMenu(&optionsMenu);
@@ -642,7 +658,7 @@ int desktop_entry() {
     menu.onValueChanged(mainMenuStructure.hallOfFame, [&]() {
         stateManager.goToHighscoresState();
     });
-    menu.onValueChanged(mainMenuStructure.exit, [&]() {
+    menu.onValueChanged(mainMenuStructure.exit, [&]() {        
         exit = true;
     });
     auto empty = [](){};
@@ -654,11 +670,11 @@ int desktop_entry() {
     while (!window.shouldClose()) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        hudList.setLine(0, vformat("Lines: %d", tetris.getStats().lines));
-        hudList.setLine(1, vformat("Score: %d", tetris.getStats().score));
-        hudList.setLine(2, vformat(u8"Уровень: %d", tetris.getStats().level));
+        hudList.setLine(0, vformat(config.string(StringID::HUD_Lines), tetris.getStats().lines));
+        hudList.setLine(1, vformat(config.string(StringID::HUD_Score), tetris.getStats().score));
+        hudList.setLine(2, vformat(config.string(StringID::HUD_Level), tetris.getStats().level));
         if (config.showFps) {
-            hudList.setLine(3, vformat("FPS: %d", fps.fps()));
+            hudList.setLine(3, vformat(config.string(StringID::HUD_FPS), fps.fps()));
         }        
 
         glm::vec2 framebuffer = window.getFramebufferSize();
@@ -740,6 +756,8 @@ int desktop_entry() {
                 }
                 hscreenLines.setRecords(config.highscoreLines);
                 hscreenScore.setRecords(config.highscoreScore);
+                hscreenLinesLayout.updateFramebuffer(framebuffer);
+                hscreenScoreLayout.updateFramebuffer(framebuffer);
                 config.save();
             });
             tetris.reset();
@@ -758,7 +776,8 @@ int desktop_entry() {
         window.swap();
 
         if (exit)
-            return 0;
+            break;
     }
+    config.save();
     return 0;
 }

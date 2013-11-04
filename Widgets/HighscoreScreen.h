@@ -23,9 +23,13 @@ class HighscoreScreen : public IWidget {
     Text* _text;
     float _xMargin;
     float _yMargin;
+    std::string _strName;
+    std::string _strLines;
+    std::string _strScore;
+    std::string _strLevel;
     void clearHighlights();
 public:
-    HighscoreScreen(Text* text);
+    HighscoreScreen(Text* text, TetrisConfig* config);
     void setRecords(std::vector<HighscoreRecord> records);
     void beginAnimating(bool assemble);
     void animate(fseconds dt) override;
