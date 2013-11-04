@@ -26,7 +26,7 @@ Program createBitmapProgram() {
         "uniform vec3 color;"
         "out vec4 outputColor;"
         "void main() {"
-        "   outputColor = vec4(color,texture2D(sampler, f_uv).a);"
+        "   outputColor = vec4(color, texture2D(sampler, f_uv).r);"
         "}"
     );
     res.link();
@@ -78,9 +78,10 @@ CrispBitmap::~CrispBitmap()
 { }
 
 void CrispBitmap::setBitmap(BitmapPtr bitmap) {
+    assert(FreeImage_GetBPP(bitmap.get()) == 8);
     m->width = FreeImage_GetWidth(bitmap.get());
     m->height = FreeImage_GetHeight(bitmap.get());
-    m->tex.setImage(FreeImage_GetBits(bitmap.get()), m->width, m->height);
+    m->tex.setImage(bitmap);
 }
 
 void CrispBitmap::setColor(glm::vec3 color) {

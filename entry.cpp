@@ -185,15 +185,9 @@ public:
     }
 };
 
-std::string configName = "config.xml";
-
-void saveConfig(TetrisConfig& config) {
-    config.save(configName);
-}
-
 bool loadConfig(TetrisConfig& config) {
     try {
-        config.load(configName);
+        config.load();
     } catch (...) {
         std::cout << "an error ocurred while loading the config file";
         return false;
@@ -243,13 +237,13 @@ struct MainMenuStructure {
     MenuLeaf* exit;
 };
 
-MainMenuStructure initMainMenu(Menu& menu, Text& text) {
+MainMenuStructure initMainMenu(Menu& menu, Text& text, TetrisConfig& config) {
     MainMenuStructure res;
-    res.resume = new MenuLeaf(&text, {}, "Resume", 0.05);
+    res.resume = new MenuLeaf(&text, {}, config.string(StringID::MainMenu_Resume), 0.05);
     res.restart = new MenuLeaf(&text, {}, "Restart", 0.05);
     res.options = new MenuLeaf(&text, {}, "Options", 0.05);
     res.hallOfFame = new MenuLeaf(&text, {}, "Hall of fame", 0.05);
-    res.exit = new MenuLeaf(&text, {}, "Exit", 0.05);
+    res.exit = new MenuLeaf(&text, {}, config.string(StringID::MainMenu_Exit), 0.05);
     menu.addLeaf(res.resume);
     menu.addLeaf(res.restart);
     menu.addLeaf(res.options);
@@ -583,7 +577,7 @@ int desktop_entry() {
     Menu mainMenu(&text), optionsMenu(&text);
     WindowLayout mainMenuLayout(&mainMenu, true);
     WindowLayout optionsMenuLayout(&optionsMenu, true);
-    MainMenuStructure mainMenuStructure = initMainMenu(mainMenu, text);
+    MainMenuStructure mainMenuStructure = initMainMenu(mainMenu, text, config);
     OptionsMenuStructure optionsMenuStructure = initOptionsMenu(optionsMenu, config, text);
 
     HighscoreScreen hscreenLines(&text);
@@ -746,7 +740,7 @@ int desktop_entry() {
                 }
                 hscreenLines.setRecords(config.highscoreLines);
                 hscreenScore.setRecords(config.highscoreScore);
-                saveConfig(config);
+                config.save();
             });
             tetris.reset();
         }

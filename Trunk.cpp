@@ -4,12 +4,14 @@
 
 const float cubeSpace = 0.2f;
 
-Texture oneColorTex(unsigned color) {
+Texture oneColorTex(uint32_t color) {
     Texture tex;
     char *c = reinterpret_cast<char*>(&color);
     std::swap(c[0], c[3]);
     std::swap(c[1], c[2]);
-    tex.setImage(&color, 1, 1);
+    BitmapPtr bitmap(FreeImage_Allocate(1, 1, 32));
+    FreeImage_SetPixelColor(bitmap.get(), 0, 0, (RGBQUAD*)&color);
+    tex.setImage(bitmap);
     return tex;
 }
 

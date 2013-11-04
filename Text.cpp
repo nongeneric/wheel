@@ -37,6 +37,34 @@ std::u32string tou32str(std::string utf8) {
     return boost::locale::conv::utf_to_utf<char32_t>(utf8);
 }
 
+// FreeImage/Source/FreeImageToolkit/CopyPaste.cpp: Combine8
+BOOL BlendPaste8(FIBITMAP *dst_dib, FIBITMAP *src_dib, unsigned x, unsigned y) {
+    // check the bit depth of src and dst images
+    if((FreeImage_GetBPP(dst_dib) != 8) || (FreeImage_GetBPP(src_dib) != 8)) {
+        return FALSE;
+    }
+
+    // check the size of src image
+    if((x + FreeImage_GetWidth(src_dib) > FreeImage_GetWidth(dst_dib)) || (y + FreeImage_GetHeight(src_dib) > FreeImage_GetHeight(dst_dib))) {
+        return FALSE;
+    }
+
+    BYTE *dst_bits = FreeImage_GetBits(dst_dib) + ((FreeImage_GetHeight(dst_dib) - FreeImage_GetHeight(src_dib) - y) * FreeImage_GetPitch(dst_dib)) + (x);
+    BYTE *src_bits = FreeImage_GetBits(src_dib);
+
+    // alpha blend images
+    for(unsigned rows = 0; rows < FreeImage_GetHeight(src_dib); rows++) {
+        for (unsigned cols = 0; cols < FreeImage_GetLine(src_dib); cols++) {
+            dst_bits[cols] += src_bits[cols];
+        }
+
+        dst_bits += FreeImage_GetPitch(dst_dib);
+        src_bits += FreeImage_GetPitch(src_dib);
+    }
+
+    return TRUE;
+}
+
 class Text::impl {
     FT_Face face;
     std::map<const CacheKey, CacheEntry> _cache;
@@ -64,7 +92,7 @@ class Text::impl {
             assert(glyph_bitmap.get());
         } else {
             glyph_bitmap = make_bitmap_ptr(FreeImage_Allocate(0, 0, 8));
-        }
+        }        
         CacheEntry entry { slot->bitmap_top, slot->bitmap_left, slot->advance.x, glyph_bitmap };
         _cache[key] = entry;
         return entry;
@@ -97,7 +125,7 @@ public:
             );
         assert(!error);
 
-        unsigned color = 0;
+        RGBQUAD color = { 0,0,0,0 };
         FreeImage_FillBackground(_fbitmap.get(), &color);
 
         int pen_x = 5;
@@ -112,33 +140,20 @@ public:
             }
 
             CacheEntry entry = getCachedGlyph(pxHeight, glyph_index, face);
-            FreeImage_Paste(
+            BlendPaste8(
                 _fbitmap.get(),
                 entry.bitmap.get(),
                 pen_x + entry.bitmapLeft,
-                pxHeight - entry.bitmapTop,
-                255
+                pxHeight - entry.bitmapTop
             );
 
             pen_x += entry.advanceX / 64;
             prev = glyph_index;
         }
         BitmapPtr fcropped = make_bitmap_ptr( FreeImage_Copy(_fbitmap.get(), 0, pxHeight * 1.3f, pen_x, 0) );
-        BitmapPtr fbitmap32 = make_bitmap_ptr( FreeImage_ConvertTo32Bits(fcropped.get()) );
-        for (size_t y = 0; y < FreeImage_GetHeight(fbitmap32.get()); ++y) {
-            for (size_t x = 0; x < FreeImage_GetWidth(fbitmap32.get()); ++x) {
-                RGBQUAD color;
-                FreeImage_GetPixelColor(fbitmap32.get(), x, y, &color);
-                color.rgbReserved = color.rgbBlue;
-                color.rgbBlue = 255;
-                color.rgbGreen = 255;
-                color.rgbRed = 255;
-                FreeImage_SetPixelColor(fbitmap32.get(), x, y, &color);
-            }
-        }
-//        bool res = FreeImage_Save(FIF_PNG, fbitmap32.get(), "C:/Users/tr/Desktop/test.png");
+//        bool res = FreeImage_Save(FIF_PNG, fcropped.get(), "/home/tr/Desktop/test.png");
 //        (void)res;
-        return fbitmap32;
+        return fcropped;
     }
 };
 

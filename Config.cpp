@@ -14,6 +14,7 @@
 */
 
 using boost::property_tree::ptree;
+const std::string configName = "config.xml";
 
 void readHighscores(std::vector<HighscoreRecord>& vec, std::string path, ptree& pt) {
     for (auto& node : pt.get_child(path)) {
@@ -37,20 +38,29 @@ void writeHighscores(std::vector<HighscoreRecord> const& vec, std::string path, 
     }
 }
 
-void TetrisConfig::load(const std::string &fileName) {
+std::string TetrisConfig::string(StringID id) {
+    auto it = _strings.find(id);
+    if (it != end(_strings))
+        return it->second;
+    return "#NOVALUE";
+}
+
+void TetrisConfig::load() {
     ptree pt;
-    read_xml(fileName, pt);
+    read_xml(configName, pt);
     orthographic = pt.get("tetris.<xmlattr>.orthographic", true);
     fullScreen = pt.get("tetris.<xmlattr>.fullscreen", false);
     screenWidth = pt.get("tetris.resolution.<xmlattr>.width", 800);
     screenHeight = pt.get("tetris.resolution.<xmlattr>.height", 600);
     showFps = pt.get("tetris.<xmlattr>.showFps", false);
     initialLevel = pt.get("tetris.<xmlattr>.initialLevel", 0);
+    language = pt.get("tetris.<xmlattr>.language", "en");
     readHighscores(highscoreLines, "tetris.lineHighscores", pt);
     readHighscores(highscoreScore, "tetris.scoreHighscores", pt);
+    loadStrings();
 }
 
-void TetrisConfig::save(const std::string &fileName) {
+void TetrisConfig::save() {
     ptree pt;
     pt.put("tetris.<xmlattr>.orthographic", orthographic);
     pt.put("tetris.<xmlattr>.fullscreen", fullScreen);
@@ -58,10 +68,30 @@ void TetrisConfig::save(const std::string &fileName) {
     pt.put("tetris.resolution.<xmlattr>.height", screenHeight);
     pt.put("tetris.<xmlattr>.showFps", showFps);
     pt.put("tetris.<xmlattr>.initialLevel", initialLevel);
+    pt.put("tetris.<xmlattr>.language", language);
     writeHighscores(highscoreLines, "tetris.lineHighscores.highscore", pt);
     writeHighscores(highscoreScore, "tetris.scoreHighscores.highscore", pt);
     boost::property_tree::xml_writer_settings<char> settings('\t', 1);
-    write_xml(fileName, pt, std::locale(), settings);
+    write_xml(configName, pt, std::locale(), settings);
+}
+
+#define X(s) { #s, StringID:: s },
+std::map<std::string, StringID> stringNames = {
+    STRING_ID_LIST
+};
+#undef X
+
+void TetrisConfig::loadStrings() {
+    ptree pt;
+    std::string xmlName = "lang." + language + ".xml";
+    read_xml(xmlName, pt);
+    for (auto& node : pt.get_child("strings")) {
+        std::string name = node.second.get("<xmlattr>.id", "");
+        auto it = stringNames.find(name);
+        if (it != end(stringNames)) {
+            _strings[it->second] = node.second.get("<xmlattr>.value", "#NOVALUE");
+        }
+    }
 }
 
 bool HighscoreRecord::operator==(const HighscoreRecord &other) {
