@@ -14,6 +14,7 @@
 #include "Trunk.h"
 #include "Camera.h"
 #include "MathTools.h"
+#include "HighscoreManager.h"
 
 #include "Widgets/SpreadAnimator.h"
 #include "Widgets/IWidget.h"
@@ -206,8 +207,11 @@ struct MainProgramInfo {
 MainProgramInfo createMainProgram() {
     MainProgramInfo info;
     Program& program = info.program;
-    program.addVertexShader(vertexShader);
+    program.addVertexShader(vertexShader);    
     program.addFragmentShader(fragmentShader);
+    program.bindAttribLocation(0, "position");
+    program.bindAttribLocation(1, "texCoord");
+    program.bindAttribLocation(2, "normal");
     program.link();
     info.U_MVP = program.getUniformLocation("mvp");
     info.U_WORLD = program.getUniformLocation("world");
@@ -544,27 +548,6 @@ public:
         }
     }
 };
-
-int updateHighscores(HighscoreRecord newRecord, std::vector<HighscoreRecord>& known, bool lines) {
-    auto getter = [lines](HighscoreRecord r) {
-        return lines ? r.lines : r.score;
-    };
-    auto isLeftWorse = [&](HighscoreRecord left, HighscoreRecord right) {
-        bool rightHasBetterLevel = left.initialLevel < right.initialLevel;
-        return getter(left) < getter(right) ||
-               ((getter(left) == getter(right)) && rightHasBetterLevel);
-    };
-    if (known.size() < 6 || isLeftWorse(known.back(), newRecord)) {
-        known.push_back(newRecord);
-        std::sort(begin(known), end(known), isLeftWorse);
-        rstd::reverse(known);
-        if (known.size() > 6) {
-            known.resize(6);
-        }
-        return std::distance(begin(known), std::find(begin(known), end(known), newRecord));
-    }
-    return -1;
-}
 
 int desktop_entry() {
     TetrisConfig config;

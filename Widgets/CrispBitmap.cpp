@@ -29,6 +29,8 @@ Program createBitmapProgram() {
         "   outputColor = vec4(color, texture2D(sampler, f_uv).r);"
         "}"
     );
+    res.bindAttribLocation(0, "pos");
+    res.bindAttribLocation(1, "uv");
     res.link();
     return res;
 }

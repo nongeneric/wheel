@@ -12,9 +12,9 @@
 class Program {
     std::vector<GLuint> _shaders;
     GLuint _program;
-
     GLuint createShader(const std::string& text, GLenum shaderType);
 public:
+    Program();
     void addVertexShader(const std::string& text);
     void addFragmentShader(const std::string& text);
     void link();
@@ -24,6 +24,7 @@ public:
     void setUniform(GLuint location, glm::vec4 const& vec);
     void setUniform(GLuint location, GLint value);
     void setUniform(GLuint location, GLfloat value);
+    void bindAttribLocation(unsigned index, std::string name);
     void bind();
     void unbind();
 };

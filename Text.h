@@ -5,6 +5,7 @@
 #include <string>
 
 typedef std::shared_ptr<FIBITMAP> BitmapPtr;
+std::shared_ptr<FIBITMAP> make_bitmap_ptr(FIBITMAP* raw);
 
 class Text {
     class impl;

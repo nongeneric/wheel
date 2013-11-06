@@ -35,6 +35,8 @@ OpenGLbasics.cpp
 BindLock.h
 Texture.h
 Texture.cpp
+HighscoreManager.h
+HighscoreManager.cpp
 Widgets/CrispBitmap.h
 Widgets/CrispBitmap.cpp
 Widgets/IWidget.h

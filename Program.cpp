@@ -34,6 +34,10 @@ GLuint Program::createShader(const std::string &text, GLenum shaderType) {
     return shader;
 }
 
+Program::Program() {
+    _program = glCreateProgram();
+}
+
 void Program::addVertexShader(const std::string &text) {
     _shaders.push_back(createShader(text, GL_VERTEX_SHADER));
 }
@@ -42,8 +46,7 @@ void Program::addFragmentShader(const std::string &text) {
     _shaders.push_back(createShader(text, GL_FRAGMENT_SHADER));
 }
 
-void Program::link() {
-    _program = glCreateProgram();
+void Program::link() {    
     for (GLuint shader : _shaders) {
         glAttachShader(_program, shader);
     }
@@ -97,6 +100,11 @@ void Program::setUniform(GLuint location, GLint value) {
 
 void Program::setUniform(GLuint location, GLfloat value) {
     glUniform1f(location, value);
+    checkUniformError();
+}
+
+void Program::bindAttribLocation(unsigned index, std::string name) {    
+    glBindAttribLocation(_program, index, name.c_str());
     checkUniformError();
 }
 

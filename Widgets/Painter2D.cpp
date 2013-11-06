@@ -24,6 +24,7 @@ Program createPainterProgram() {
         "   outputColor = f_color;"
         "}"
     );
+    res.bindAttribLocation(0, "pos");
     res.link();
     return res;
 }
@@ -36,7 +37,7 @@ void Painter2D::initVao() {
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)12); // not used
+    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)12);
 }
 
 Painter2D::Painter2D()

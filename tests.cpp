@@ -4,6 +4,7 @@
 #include <iostream>
 #include "vformat.h"
 #include "rstd.h"
+#include "HighscoreManager.h"
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
@@ -205,4 +206,71 @@ TEST(TetrisTests, Simple1) {
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
     }));
+}
+
+
+TEST(HighscoresTest, Simple1) {
+    std::vector<HighscoreRecord> records;
+    HighscoreRecord r { "test", 15, 2000, 10 };
+    ASSERT_TRUE(r == r);
+
+    int pos = updateHighscores(r, records, true);
+    ASSERT_EQ(0, pos);
+    ASSERT_EQ(1, records.size());
+    ASSERT_TRUE(r == records.front());
+
+    pos = updateHighscores(r, records, true);
+    ASSERT_TRUE(pos == 0 || pos == 1);
+    ASSERT_EQ(2, records.size());
+    ASSERT_TRUE(r == records.front());
+    ASSERT_TRUE(r == records.back());
+
+    HighscoreRecord r1 { "test1", 15, 2000, 19 };
+    pos = updateHighscores(r1, records, true);
+    ASSERT_EQ(0, pos);
+    ASSERT_EQ(3, records.size());
+    ASSERT_TRUE(r1 == records.front());
+
+    HighscoreRecord r2 { "test2", 16, 2000, 19 };
+    pos = updateHighscores(r2, records, true);
+    ASSERT_EQ(0, pos);
+    ASSERT_EQ(4, records.size());
+    ASSERT_TRUE(r2 == records.front());
+
+    HighscoreRecord r3 { "test2", 10, 2500, 19 };
+    pos = updateHighscores(r3, records, false);
+    ASSERT_EQ(0, pos);
+    ASSERT_EQ(5, records.size());
+    ASSERT_TRUE(r3 == records.front());
+
+    for (int i = 0; i < 10; ++i) {
+        updateHighscores(r3, records, false);
+    }
+
+    for (auto hs : records) {
+        ASSERT_TRUE(hs == r3);
+    }
+
+    HighscoreRecord r4 { "test2", 10, 2400, 19 };
+
+    ASSERT_EQ(6, records.size());
+    records.push_back(r4);
+    pos = updateHighscores(r4, records, true);
+    ASSERT_EQ(-1, pos);
+    ASSERT_EQ(6, records.size());
+
+    pos = updateHighscores({ "", 100, 0, 0 }, records, true);
+    ASSERT_EQ(0, pos);
+    pos = updateHighscores({ "", 105, 0, 0 }, records, true);
+    ASSERT_EQ(0, pos);
+    pos = updateHighscores({ "", 110, 0, 0 }, records, true);
+    ASSERT_EQ(0, pos);
+    pos = updateHighscores({ "", 101, 0, 0 }, records, true);
+    ASSERT_EQ(2, pos);
+
+    HighscoreRecord r0 { "", 0, 0, 0 };
+    records.insert(begin(records), r0);
+    pos = updateHighscores(r0, records, true);
+    ASSERT_EQ(-1, pos);
+    ASSERT_FALSE(records.front() == r0);
 }

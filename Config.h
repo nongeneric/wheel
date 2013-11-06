@@ -9,7 +9,7 @@ struct HighscoreRecord {
     unsigned lines;
     unsigned score;
     unsigned initialLevel;
-    bool operator==(HighscoreRecord const&);
+    bool operator==(HighscoreRecord const&);    
 };
 
 #define STRING_ID_LIST \
