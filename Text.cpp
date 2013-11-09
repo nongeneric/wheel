@@ -99,7 +99,7 @@ class Text::impl {
     }
 public:
     impl() {
-        _fbitmap = make_bitmap_ptr( FreeImage_Allocate(1000, 300, 8) );
+        _fbitmap = make_bitmap_ptr( FreeImage_Allocate(1200, 300, 8) );
         assert(_fbitmap.get());
     }
 

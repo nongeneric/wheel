@@ -259,8 +259,9 @@ MainMenuStructure initMainMenu(Menu& menu, Text& text, TetrisConfig& config) {
 struct OptionsMenuStructure {
     MenuLeaf* back;
     MenuLeaf* initialSpeed;
+    MenuLeaf* monitor;
     MenuLeaf* fullscreen;
-    MenuLeaf* resolution;
+    MenuLeaf* resolution;    
 };
 
 std::vector<std::string> genNumbers(int count) {
@@ -270,14 +271,53 @@ std::vector<std::string> genNumbers(int count) {
     return res;
 }
 
+std::vector<std::string> getMonitorNames() {
+    std::vector<std::string> vec;
+    for (Monitor& m : getMonitors()) {
+        vec.push_back(m.name);
+    }
+    return vec;
+}
+
+std::string printMode(MonitorMode mode) {
+    return vformat("%dx%d,%dHz", mode.width, mode.height, mode.refreshRate);
+}
+
+std::map<std::string, MonitorMode> getMonitorModes(std::string name) {
+    std::map<std::string, MonitorMode> res;
+    for (Monitor& monitor : getMonitors()) {
+        if (monitor.name != name)
+            continue;
+        for (MonitorMode& mode : monitor.modes) {
+            res[printMode(mode)] = mode;
+        }
+    }
+    return res;
+}
+
+std::vector<std::string> selectModeNames(std::map<std::string, MonitorMode> const& modes) {
+    std::vector<std::string> res;
+    for (auto& pair : modes) {
+        res.push_back(pair.first);
+    }
+    return res;
+}
+
 OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig& config, Text& text) {
     OptionsMenuStructure res;
     int speed = std::min(config.initialLevel, 19u);
     res.back = new MenuLeaf(&text, {}, config.string(StringID::OptionsMenu_Back), 0.05);
+    std::string strYes = config.string(StringID::Menu_Yes);
+    std::string strNo = config.string(StringID::Menu_No);
     (res.initialSpeed = new MenuLeaf(&text, genNumbers(20), config.string(StringID::OptionsMenu_InitialLevel), 0.05f))->setValue(vformat("%d", speed));
-    (res.fullscreen = new MenuLeaf(&text, {"On", "Off"}, config.string(StringID::OptionsMenu_Fullscreen), 0.05f))->setValue(config.fullScreen ? "On" : "Off");
-    (res.resolution = new MenuLeaf(&text, {"1920x1080"}, config.string(StringID::OptionsMenu_Resolution), 0.05f))->setValue("1920x1080");
+    (res.fullscreen = new MenuLeaf(&text, {strYes, strNo}, config.string(StringID::OptionsMenu_Fullscreen), 0.05f))->setValue(config.fullScreen ? strYes : strNo);
+    auto monitorNames = getMonitorNames();
+    std::string monitor = monitorNames.front();
+    (res.monitor = new MenuLeaf(&text, monitorNames, config.string(StringID::OptionsMenu_Monitor), 0.05f))->setValue(monitor);
+    auto modes = selectModeNames(getMonitorModes(monitor));
+    (res.resolution = new MenuLeaf(&text, modes, config.string(StringID::OptionsMenu_Resolution), 0.05f))->setValue(modes.front());
     menu.addLeaf(res.back);
+    menu.addLeaf(res.monitor);
     menu.addLeaf(res.initialSpeed);
     menu.addLeaf(res.fullscreen);
     menu.addLeaf(res.resolution);
@@ -555,7 +595,7 @@ int desktop_entry() {
         return 1;
     }
 
-    Window window("wheel", config.fullScreen, config.screenWidth, config.screenHeight);
+    Window window("wheel", config.fullScreen, config.screenWidth, config.screenHeight, config.monitor);
     Keyboard keys(&window);
     PauseManager pm(&keys);
     MainProgramInfo program = createMainProgram();
@@ -667,7 +707,7 @@ int desktop_entry() {
         hudList.setLine(2, vformat(config.string(StringID::HUD_Level), tetris.getStats().level));
         if (config.showFps) {
             hudList.setLine(3, vformat(config.string(StringID::HUD_FPS), fps.fps()));
-        }        
+        }
 
         glm::vec2 framebuffer = window.getFramebufferSize();
         glm::mat4 proj = getProjection(framebuffer, config.orthographic);
@@ -699,7 +739,7 @@ int desktop_entry() {
             normalStep = true;
             tetris.collect();
             nextPiece |= tetris.step();
-            elapsed = fseconds();
+            elapsed -= delay - levelPenalty;
         }
 
         keys.advance(dt);

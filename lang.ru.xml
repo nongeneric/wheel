@@ -9,6 +9,9 @@
 	<string id="OptionsMenu_Resolution" value="Разрешение"/>
 	<string id="OptionsMenu_Fullscreen" value="Полный экран"/>
 	<string id="OptionsMenu_InitialLevel" value="Начальный уровень"/>
+	<string id="OptionsMenu_Monitor" value="Монитор"/>
+	<string id="Menu_Yes" value="Да"/>
+	<string id="Menu_No" value="Нет"/>
 	<string id="HUD_Lines" value="Линий: %d"/>
 	<string id="HUD_Score" value="Очков: %d"/>
 	<string id="HUD_Level" value="Уровень: %d"/>

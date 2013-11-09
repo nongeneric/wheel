@@ -50,6 +50,7 @@ void TetrisConfig::load() {
     read_xml(configName, pt);
     orthographic = pt.get("tetris.<xmlattr>.orthographic", true);
     fullScreen = pt.get("tetris.<xmlattr>.fullscreen", false);
+    monitor = pt.get("tetris.<xmlattr>.monitor", std::string());
     screenWidth = pt.get("tetris.resolution.<xmlattr>.width", 800);
     screenHeight = pt.get("tetris.resolution.<xmlattr>.height", 600);
     showFps = pt.get("tetris.<xmlattr>.showFps", false);
@@ -64,6 +65,7 @@ void TetrisConfig::save() {
     ptree pt;
     pt.put("tetris.<xmlattr>.orthographic", orthographic);
     pt.put("tetris.<xmlattr>.fullscreen", fullScreen);
+    pt.put("tetris.<xmlattr>.monitor", monitor);
     pt.put("tetris.resolution.<xmlattr>.width", screenWidth);
     pt.put("tetris.resolution.<xmlattr>.height", screenHeight);
     pt.put("tetris.<xmlattr>.showFps", showFps);

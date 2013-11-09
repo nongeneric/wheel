@@ -18,7 +18,10 @@ struct HighscoreRecord {
     X(MainMenu_Options) \
     X(MainMenu_HallOfFame) \
     X(MainMenu_Exit) \
+    X(Menu_Yes) \
+    X(Menu_No) \
     X(OptionsMenu_Back) \
+    X(OptionsMenu_Monitor) \
     X(OptionsMenu_Resolution) \
     X(OptionsMenu_Fullscreen) \
     X(OptionsMenu_InitialLevel) \
@@ -44,6 +47,7 @@ enum class StringID {
 struct TetrisConfig {    
     bool orthographic;
     bool fullScreen;
+    std::string monitor;
     unsigned screenWidth;
     unsigned screenHeight;
     bool showFps;

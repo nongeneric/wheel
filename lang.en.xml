@@ -9,6 +9,9 @@
 	<string id="OptionsMenu_Resolution" value="Resolution"/>
 	<string id="OptionsMenu_Fullscreen" value="Fullscreen"/>
 	<string id="OptionsMenu_InitialLevel" value="Initial Level"/>
+	<string id="OptionsMenu_Monitor" value="Monitor"/>
+	<string id="Menu_Yes" value="Yes"/>
+	<string id="Menu_No" value="No"/>
 	<string id="HUD_Lines" value="Lines: %d"/>
 	<string id="HUD_Score" value="Score: %d"/>
 	<string id="HUD_Level" value="Level: %d"/>
