@@ -366,8 +366,7 @@ public:
         return _paused;
     }
     void flip() {
-        _paused = !_paused;        
-        _keys->enableHandler(_paused ? State::Menu : State::Game);
+        _paused = !_paused;
     }
 };
 
@@ -599,7 +598,7 @@ public:
     }
 };
 
-int desktop_entry() {
+int desktop_main() {
     TetrisConfig config;
     if (!loadConfig(config)) {
         return 1;
@@ -846,4 +845,13 @@ int desktop_entry() {
     }
     config.save();
     return 0;
+}
+
+int desktop_entry() {
+    try {
+        return desktop_main();
+    } catch (std::exception& e) {
+        std::cout << "An error occured: " << e.what() << std::endl;
+        return 1;
+    }
 }

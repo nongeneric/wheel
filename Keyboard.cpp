@@ -14,7 +14,7 @@ Keyboard::Keyboard(Window *window) : _window(window) {  }
 void Keyboard::advance(fseconds dt) {    
     for (auto& pair : _stateSpecificKeyStates[_currentState]) {
         int curState = _window->getKey(pair.first);
-        int prevState =  _sharedPrevKeyStates[pair.first]; //pair.second.state;
+        int prevState =  _sharedPrevKeyStates[pair.first];
         if (curState == GLFW_PRESS && prevState == GLFW_RELEASE) {
             invokeHandler(pair.first, _stateDownHandlers[_currentState]);            
             invokeHandler(pair.first, _stateRepeatHandlers[_currentState]);
