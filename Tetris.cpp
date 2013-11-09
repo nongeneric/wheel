@@ -389,11 +389,18 @@ public:
         _dynamicGrid = createState(_hor, _vert, CellState::Hidden);
         _stats = TetrisStatistics();
     }
+    void setInitialLevel(int level) {
+        _initialLevel = level;
+    }
 };
 
-Tetris::Tetris(int hor, int vert, std::function<PieceType::t()> generator, unsigned initialLevel)
-    : _impl(new impl(hor, vert, generator, initialLevel))
+Tetris::Tetris(int hor, int vert, std::function<PieceType::t()> generator)
+    : _impl(new impl(hor, vert, generator, 0))
 { }
+
+void Tetris::setInitialLevel(int level) {
+    _impl->setInitialLevel(level);
+}
 
 CellInfo Tetris::getState(int x, int y) const {
     return _impl->getState(x, y);

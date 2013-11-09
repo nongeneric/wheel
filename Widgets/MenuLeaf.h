@@ -11,6 +11,7 @@ class MenuLeaf : public IWidget, public ISpreadAnimationLine {
     std::string _lineText;
 public:
     MenuLeaf(Text* textCache, std::vector<std::string> values, std::string line, float relHeight);
+    void updateValues(std::vector<std::string> values, std::string selected);
     void setValue(std::string value);
     std::vector<std::string> const& values() const;
     std::string value();

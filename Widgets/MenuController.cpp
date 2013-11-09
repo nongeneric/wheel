@@ -57,14 +57,14 @@ MenuController::MenuController(Menu *menu, Keyboard *keys)
         }
     });
     keys->onDown(GLFW_KEY_ESCAPE, State::Menu, [&]() { back(); });
-    keys->onRepeat(GLFW_KEY_LEFT, fseconds(0.15f), State::Menu, [&]() {
+    keys->onRepeat(GLFW_KEY_LEFT, fseconds(0.3f), State::Menu, [&]() {
         if (_customScreen)
             return;
         if (_leaf->values().empty())
             return;
         advanceValue(-1, _leaf);
     });
-    keys->onRepeat(GLFW_KEY_RIGHT, fseconds(0.15f), State::Menu, [&]() {
+    keys->onRepeat(GLFW_KEY_RIGHT, fseconds(0.3f), State::Menu, [&]() {
         if (_customScreen)
             return;
         if (_leaf->values().empty())

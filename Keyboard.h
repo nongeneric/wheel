@@ -7,32 +7,28 @@
 using fseconds = boost::chrono::duration<float>;
 
 enum class State {
-    Game = 1,
-    Menu = 2,
-    NameInput = 4,
-    HighScores = 8
+    Game,
+    Menu,
+    NameInput,
+    HighScores
 };
 
 std::string strState(State);
 
 class Keyboard {
-    struct ButtonState {
-        int state;
+    struct KeyState {
         fseconds elapsed;
-        fseconds repeat;
-        ButtonState(int state = GLFW_RELEASE, fseconds elapsed = fseconds{}, fseconds repeat = fseconds{});
+        fseconds repeat;        
     };
-    struct Handler {
-        State id;
-        std::function<void()> func;
-    };
+    typedef std::function<void()> Handler;
+    State _currentState;
     fseconds _repeatTime = fseconds(0.3f);
-    std::map<int, ButtonState> _prevStates;
-    std::map<int, std::vector<Handler>> _downHandlers;
-    std::map<int, std::vector<Handler>> _repeatHandlers;    
-    std::map<int, bool> _activeRepeats;
+    std::map<int, int> _sharedPrevKeyStates;
+    std::map<State, std::map<int, KeyState>> _stateSpecificKeyStates;
+    std::map<State, std::map<int, std::vector<Handler>>> _stateDownHandlers;
+    std::map<State, std::map<int, std::vector<Handler>>> _stateRepeatHandlers;
+    std::map<int, bool> _activeRepeats;    
     Window* _window;
-    unsigned _currentHandlerIds = 0;
     void invokeHandler(int key, std::map<int, std::vector<Handler>> const& handlers);
 public:
     Keyboard(Window* window);

@@ -7,6 +7,11 @@ MenuLeaf::MenuLeaf(Text *textCache, std::vector<std::string> values, std::string
     _line.set(line);
 }
 
+void MenuLeaf::updateValues(std::vector<std::string> values, std::string selected) {
+    _values = values;
+    setValue(selected);
+}
+
 void MenuLeaf::setValue(std::string value) {
     _value = value;
     _line.set(_lineText + ": " + value);

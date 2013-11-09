@@ -34,6 +34,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <boost/chrono.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include "rstd.h"
 #include <functional>
@@ -283,24 +284,34 @@ std::string printMode(MonitorMode mode) {
     return vformat("%dx%d,%dHz", mode.width, mode.height, mode.refreshRate);
 }
 
-std::map<std::string, MonitorMode> getMonitorModes(std::string name) {
-    std::map<std::string, MonitorMode> res;
+std::vector<std::tuple<std::string, MonitorMode>> getMonitorModes(std::string name) {
+    std::vector<std::tuple<std::string, MonitorMode>> res;
     for (Monitor& monitor : getMonitors()) {
         if (monitor.name != name)
             continue;
         for (MonitorMode& mode : monitor.modes) {
-            res[printMode(mode)] = mode;
+            res.push_back(std::make_tuple(printMode(mode), mode));
         }
     }
     return res;
 }
 
-std::vector<std::string> selectModeNames(std::map<std::string, MonitorMode> const& modes) {
+std::vector<std::string> selectModeNames(std::vector<std::tuple<std::string, MonitorMode>> const& modes) {
     std::vector<std::string> res;
     for (auto& pair : modes) {
-        res.push_back(pair.first);
+        res.push_back(std::get<0>(pair));
     }
     return res;
+}
+
+std::string selectBestmode(std::string monitor, int width, int height) {
+    auto modes = getMonitorModes(monitor);
+    auto it = std::find_if(begin(modes), end(modes), [&](decltype(modes.front()) tuple) {
+        return std::get<1>(tuple).width == width && std::get<1>(tuple).height == height;
+    });
+    if (it == end(modes))
+        return std::get<0>(modes.back());
+    return std::get<0>(*it);
 }
 
 OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig& config, Text& text) {
@@ -315,7 +326,7 @@ OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig& config, Text& tex
     std::string monitor = monitorNames.front();
     (res.monitor = new MenuLeaf(&text, monitorNames, config.string(StringID::OptionsMenu_Monitor), 0.05f))->setValue(monitor);
     auto modes = selectModeNames(getMonitorModes(monitor));
-    (res.resolution = new MenuLeaf(&text, modes, config.string(StringID::OptionsMenu_Resolution), 0.05f))->setValue(modes.front());
+    (res.resolution = new MenuLeaf(&text, modes, config.string(StringID::OptionsMenu_Resolution), 0.05f))->setValue(modes.back());
     menu.addLeaf(res.back);
     menu.addLeaf(res.monitor);
     menu.addLeaf(res.initialSpeed);
@@ -354,8 +365,7 @@ public:
         return _paused;
     }
     void flip() {
-        _paused = !_paused;
-        _keys->disableHandler(_paused ? State::Game : State::Menu);
+        _paused = !_paused;        
         _keys->enableHandler(_paused ? State::Menu : State::Game);
     }
 };
@@ -510,7 +520,6 @@ public:
     }
 
     void updateKeysHandlers(State newState) {
-        _keys->disableHandler(_current);
         _keys->enableHandler(newState);
     }
 
@@ -600,7 +609,8 @@ int desktop_entry() {
     PauseManager pm(&keys);
     MainProgramInfo program = createMainProgram();
     std::vector<MeshWrapper> meshes = genMeshes();
-    Tetris tetris(g_TetrisHor, g_TetrisVert, Generator(), config.initialLevel);
+    Tetris tetris(g_TetrisHor, g_TetrisVert, Generator());
+    tetris.setInitialLevel(config.initialLevel);
     Camera camera;
     CameraController camController(&window, &camera, &keys);
 
@@ -681,6 +691,7 @@ int desktop_entry() {
     });
     menu.onValueChanged(mainMenuStructure.restart, [&]() {
         wait = fseconds();
+        tetris.setInitialLevel(config.initialLevel);
         tetris.reset();
         stateManager.goTo(State::Game);
     });
@@ -693,11 +704,33 @@ int desktop_entry() {
     menu.onValueChanged(mainMenuStructure.exit, [&]() {        
         exit = true;
     });
-    auto empty = [](){};
     menu.onValueChanged(optionsMenuStructure.back, [&]() { menu.back(); });
-    menu.onValueChanged(optionsMenuStructure.fullscreen, empty);
-    menu.onValueChanged(optionsMenuStructure.initialSpeed, empty);
-    menu.onValueChanged(optionsMenuStructure.resolution, empty);
+    menu.onValueChanged(optionsMenuStructure.fullscreen, [&]() {
+        bool newValue = optionsMenuStructure.fullscreen->value() ==
+                config.string(StringID::Menu_Yes);
+        config.fullScreen = newValue;
+    });
+    menu.onValueChanged(optionsMenuStructure.initialSpeed, [&]() {
+        int newValue = boost::lexical_cast<int>(optionsMenuStructure.initialSpeed->value());
+        config.initialLevel = newValue;
+    });
+    menu.onValueChanged(optionsMenuStructure.monitor, [&]() {
+        std::string monitor = optionsMenuStructure.monitor->value();
+        config.monitor = monitor;
+        auto strModes = selectModeNames(getMonitorModes(monitor));
+        optionsMenuStructure.resolution->updateValues(strModes, strModes.back());
+    });
+    menu.onValueChanged(optionsMenuStructure.resolution, [&]() {
+        auto modes = getMonitorModes(optionsMenuStructure.monitor->value());
+        std::string strMode = optionsMenuStructure.resolution->value();
+        auto it = std::find_if(begin(modes), end(modes), [&](decltype(modes.front()) tuple) {
+             return std::get<0>(tuple) == strMode;
+        });
+        assert(it != end(modes));
+        MonitorMode mode = std::get<1>(*it);
+        config.screenWidth = mode.width;
+        config.screenHeight = mode.height;
+    });
 
     while (!window.shouldClose()) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -742,7 +775,7 @@ int desktop_entry() {
             elapsed -= delay - levelPenalty;
         }
 
-        keys.advance(dt);
+        keys.advance(realDt);
         camController.advance();
         if (pm.paused()) {
             menu.advance(realDt);
