@@ -326,7 +326,8 @@ OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig& config, Text& tex
     std::string monitor = monitorNames.front();
     (res.monitor = new MenuLeaf(&text, monitorNames, config.string(StringID::OptionsMenu_Monitor), 0.05f))->setValue(monitor);
     auto modes = selectModeNames(getMonitorModes(monitor));
-    (res.resolution = new MenuLeaf(&text, modes, config.string(StringID::OptionsMenu_Resolution), 0.05f))->setValue(modes.back());
+    std::string mode = selectBestmode(monitor, config.screenWidth, config.screenHeight);
+    (res.resolution = new MenuLeaf(&text, modes, config.string(StringID::OptionsMenu_Resolution), 0.05f))->setValue(mode);
     menu.addLeaf(res.back);
     menu.addLeaf(res.monitor);
     menu.addLeaf(res.initialSpeed);
