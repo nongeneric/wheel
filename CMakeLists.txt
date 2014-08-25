@@ -12,7 +12,7 @@ link_directories(${Boost_LIBRARY_DIRS})
 add_definitions(-DDEBUG)
 set(CMAKE_CXX_FLAGS "-g -O0 -Wall -Wextra -Werror -std=c++11 ${CMAKE_CXX_FLAGS}")
 
-include_directories(SYSTEM $ENV{LOCAL_DIR}/include/freetype2)
+include_directories(SYSTEM /usr/include/freetype2)
 
 FILE(COPY cube.ply DESTINATION .)
 FILE(COPY LiberationSans-Regular.ttf DESTINATION .)
@@ -104,10 +104,10 @@ project(desktop)
 add_executable(${PROJECT_NAME} main.cpp)
 target_link_libraries(${PROJECT_NAME}
     wheel
-    glfw3
+    glfw
     assimp
     freetype
-    freeimage
+    freeimage-3.16.0
     ${LIBS}    
     ${Boost_LIBRARIES}
 )

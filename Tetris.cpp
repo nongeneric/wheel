@@ -35,9 +35,9 @@ auto barRight = State {
 };
 
 auto pieceTup = State {
-    Line { _0, _0, _0 },
-    Line { _1, _1, _1 },
     Line { _0, _1, _0 },
+    Line { _1, _1, _1 },
+    Line { _0, _0, _0 },
 };
 
 auto pieceTright = State {
@@ -47,9 +47,9 @@ auto pieceTright = State {
 };
 
 auto pieceTdown = State {
-    Line { _0, _1, _0 },
-    Line { _1, _1, _1 },
     Line { _0, _0, _0 },
+    Line { _1, _1, _1 },
+    Line { _0, _1, _0 },
 };
 
 auto pieceTleft = State {
@@ -300,8 +300,9 @@ class Tetris::impl {
         }
     }
 
-    PieceOrientation::t nextOrientation(PieceOrientation::t prev) {
-        return static_cast<PieceOrientation::t>((prev + 1) % PieceOrientation::count);
+    PieceOrientation::t nextOrientation(PieceOrientation::t prev, bool clockwise) {
+        int delta = clockwise ? 1 : -1;
+        return static_cast<PieceOrientation::t>((prev + delta + PieceOrientation::count) % PieceOrientation::count);
     }
 public:
     impl(unsigned hor, unsigned vert, std::function<PieceType::t()> generator, unsigned initialLevel)
@@ -351,7 +352,7 @@ public:
         moveHor(-1);
     }
 
-    void rotate() {
+    void rotate(bool clockwise) {
         if (_bbPiece.y < 0)
             return;
         auto copy = _dynamicGrid;
@@ -359,7 +360,7 @@ public:
         int leftSpike = std::max(0, 4 - _bbPiece.x);
         int offset = leftSpike - rightSpike;
         movePieceHor(copy, offset);
-        auto newOrient = nextOrientation(_pieceOrientation);
+        auto newOrient = nextOrientation(_pieceOrientation, clockwise);
         State nextPiece = patchPiece(pieces[_piece][newOrient], _piece);
         paste(nextPiece, copy, _bbPiece.x + offset, _bbPiece.y);
         if (!collision(copy)) {
@@ -422,8 +423,8 @@ void Tetris::moveLeft() {
     _impl->moveLeft();
 }
 
-void Tetris::rotate() {
-    _impl->rotate();
+void Tetris::rotate(bool clockwise) {
+    _impl->rotate(clockwise);
 }
 
 void Tetris::collect() {

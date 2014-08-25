@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tetris orthographic="true" fullscreen="false" showFps="true" initialLevel="10" language="en">
+	<resolution width="800" height="600"/>
+	<lineHighscores>
+	</lineHighscores>
+	<scoreHighscores>		
+	</scoreHighscores>
+</tetris>

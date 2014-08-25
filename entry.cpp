@@ -668,9 +668,19 @@ int desktop_main() {
             tetris.moveRight();
         }
     });
+    keys.onDown(GLFW_KEY_Z, State::Game, [&]() {
+        if (canManuallyMove) {
+            tetris.rotate(false);
+        }
+    });
+    keys.onDown(GLFW_KEY_X, State::Game, [&]() {
+        if (canManuallyMove) {
+            tetris.rotate(true);
+        }
+    });
     keys.onDown(GLFW_KEY_UP, State::Game, [&]() {
         if (canManuallyMove) {
-            tetris.rotate();
+            tetris.rotate(true);
         }
     });
     keys.onRepeat(GLFW_KEY_DOWN, fseconds(0.03f), State::Game, [&]() {

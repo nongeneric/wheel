@@ -39,7 +39,7 @@ public:
     bool step();
     void moveRight();
     void moveLeft();
-    void rotate();
+    void rotate(bool clockwise);
     void collect();
     void reset();
     TetrisStatistics getStats() const;
