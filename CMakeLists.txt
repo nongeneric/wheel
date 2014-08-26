@@ -14,6 +14,7 @@ set(CMAKE_CXX_FLAGS "-g -O0 -Wall -Wextra -Werror -std=c++11 ${CMAKE_CXX_FLAGS}"
 
 include_directories(SYSTEM /usr/include/freetype2)
 
+FILE(COPY config.xml DESTINATION .)
 FILE(COPY cube.ply DESTINATION .)
 FILE(COPY LiberationSans-Regular.ttf DESTINATION .)
 FILE(COPY lang.en.xml DESTINATION .)

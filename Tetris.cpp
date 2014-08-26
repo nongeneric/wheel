@@ -35,9 +35,9 @@ auto barRight = State {
 };
 
 auto pieceTup = State {
-    Line { _0, _1, _0 },
-    Line { _1, _1, _1 },
     Line { _0, _0, _0 },
+    Line { _1, _1, _1 },
+    Line { _0, _1, _0 },
 };
 
 auto pieceTright = State {
@@ -47,9 +47,9 @@ auto pieceTright = State {
 };
 
 auto pieceTdown = State {
-    Line { _0, _0, _0 },
-    Line { _1, _1, _1 },
     Line { _0, _1, _0 },
+    Line { _1, _1, _1 },
+    Line { _0, _0, _0 },
 };
 
 auto pieceTleft = State {
