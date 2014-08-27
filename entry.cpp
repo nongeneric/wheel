@@ -742,6 +742,11 @@ int desktop_main() {
         config.screenHeight = mode.height;
     });
 
+    // workaround the optimization bug (?) leading to incorrect alias detection
+    // and reuse of these variables, making the closure using them crash
+    int newLinesHighscore;
+    int newScoreHighscore;
+
     while (!window.shouldClose()) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -820,9 +825,9 @@ int desktop_main() {
         auto stats = tetris.getStats();
         if (stats.gameOver) {
             HighscoreRecord newRecord { "", stats.lines, stats.score, config.initialLevel };
-            int newLinesHighscore = updateHighscores(newRecord, config.highscoreLines, true);
-            int newScoreHighscore = updateHighscores(newRecord, config.highscoreScore, false);
-            stateManager.goToNameInputState(newLinesHighscore, newScoreHighscore, [&](std::string newName) {
+            newLinesHighscore = updateHighscores(newRecord, config.highscoreLines, true);
+            newScoreHighscore = updateHighscores(newRecord, config.highscoreScore, false);
+            stateManager.goToNameInputState(newLinesHighscore, newScoreHighscore, [&](std::string newName) {                
                 if (newLinesHighscore != -1) {
                     config.highscoreLines.at(newLinesHighscore).name = newName;
                 }

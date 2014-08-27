@@ -25,7 +25,7 @@ int updateHighscores(HighscoreRecord newRecord, std::vector<HighscoreRecord>& kn
     };
     sort(known, getter);
     int pos = -1;
-    if (known.size() < 6 || isLeftWorse(getter, known.back(), newRecord)) {
+    if (known.size() < 6 || (!known.empty() && isLeftWorse(getter, known.back(), newRecord))) {
         known.push_back(newRecord);
         sort(known, getter);
         pos = std::distance(begin(known), std::find(begin(known), end(known), newRecord));

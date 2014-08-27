@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <functional>
 
 namespace rstd {
     template<typename T, typename Cont>

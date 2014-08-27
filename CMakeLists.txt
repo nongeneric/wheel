@@ -1,24 +1,34 @@
 project(wheel)
 cmake_minimum_required(VERSION 2.8)
 
-set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "C:/mingw32/include/boost-1_54")
-set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "C:/mingw32/lib")
+option(CMAKE_CXX_FLAGS "CMAKE_CXX_FLAGS" OFF)
+
+set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "C:/mingw-w64/mingw64/include/boost-1_55")
+set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "C:/mingw-w64/mingw64/lib")
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
 find_package(Boost COMPONENTS system filesystem thread chrono REQUIRED)
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
 
-add_definitions(-DDEBUG)
-set(CMAKE_CXX_FLAGS "-g -O0 -Wall -Wextra -Werror -std=c++11 ${CMAKE_CXX_FLAGS}")
+if(DEFINED CMAKE_RELEASE)
+    set(CMAKE_CXX_FLAGS "-O2 ${CMAKE_CXX_FLAGS}")
+else()
+    add_definitions(-DDEBUG)
+    set(CMAKE_CXX_FLAGS "-g -O0 ${CMAKE_CXX_FLAGS}")
+endif()
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -std=c++11 ${CMAKE_CXX_FLAGS}")
 
 include_directories(SYSTEM /usr/include/freetype2)
+include_directories(C:/mingw-w64/mingw64/include/freetype2)
 
-FILE(COPY config.xml DESTINATION .)
-FILE(COPY cube.ply DESTINATION .)
-FILE(COPY LiberationSans-Regular.ttf DESTINATION .)
-FILE(COPY lang.en.xml DESTINATION .)
-FILE(COPY lang.ru.xml DESTINATION .)
+file(COPY create_nsis.py DESTINATION .)
+file(COPY installer.nsi DESTINATION .)
+file(COPY config.xml DESTINATION .)
+file(COPY cube.ply DESTINATION .)
+file(COPY LiberationSans-Regular.ttf DESTINATION .)
+file(COPY lang.en.xml DESTINATION .)
+file(COPY lang.ru.xml DESTINATION .)
 
 set(SRC_LIST
 Camera.h
@@ -79,8 +89,11 @@ vformat.h
 )
 
 set(WINDOWS_LIB_DEPS
+    glfw3
     glew32
     opengl32
+    freeimage
+    z
 )
 
 set(LINUX_LIB_DEPS
@@ -92,11 +105,14 @@ set(LINUX_LIB_DEPS
     Xi
     pthread
     bz2
+    freeimage-3.16.0
+    glfw
 )
 
-set(LIBS ${LINUX_LIB_DEPS})
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     set(LIBS ${WINDOWS_LIB_DEPS})
+else()
+    set(LIBS ${LINUX_LIB_DEPS})
 endif()
 
 add_library(${PROJECT_NAME} ${SRC_LIST})
@@ -105,10 +121,8 @@ project(desktop)
 add_executable(${PROJECT_NAME} main.cpp)
 target_link_libraries(${PROJECT_NAME}
     wheel
-    glfw
     assimp
     freetype
-    freeimage-3.16.0
     ${LIBS}    
     ${Boost_LIBRARIES}
 )
