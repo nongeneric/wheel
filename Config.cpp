@@ -17,7 +17,10 @@ using boost::property_tree::ptree;
 const std::string configName = "config.xml";
 
 void readHighscores(std::vector<HighscoreRecord>& vec, std::string path, ptree& pt) {
-    for (auto& node : pt.get_child(path)) {
+    auto child = pt.get_child_optional(path);
+    if (!child)
+        return;
+    for (auto& node : child.get()) {
         vec.push_back(HighscoreRecord{
             node.second.get("<xmlattr>.name", ""),
             node.second.get("<xmlattr>.lines", 0u),
