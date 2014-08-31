@@ -4,14 +4,14 @@
 [ ] background (colors, movement per lvl)
 [ ] remap keyboard (config or predefined: wasd + rotating)
 [ ] music and sound effects
+[ ] rename executables
+[ ] create an icon for the windows executable
+[ ] saving upon change (options), save always instead
+[ ] remember the previous selected item in menu when navigating menus
+[ ] monitor selection (lost due to the apocalypse)
 
 -- 0.1
 [V] config corruption
-[ ] monitor selection (lost due to the apocalypse)
-[ ] saving upon change (options), save always instead
 [V] tarball with sources for linux
 [V] installer for windows
-[ ] rename executables
-[ ] create an icon for the windows executable
-[ ] remember the previous selected item in menu when navigating menus
-[ ] hide the console in release build
+[V] hide the console in release build (windows)
