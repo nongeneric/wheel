@@ -742,8 +742,8 @@ int desktop_main() {
         config.screenHeight = mode.height;
     });
 
-    // workaround the optimization bug (?) leading to incorrect alias detection
-    // and reuse of these variables, making the closure using them crash
+    // define these here so that the closure below doesn't capture
+    // dead stack variables
     int newLinesHighscore;
     int newScoreHighscore;
 

@@ -3,15 +3,15 @@
 [ ] android port
 [ ] background (colors, movement per lvl)
 [ ] remap keyboard (config or predefined: wasd + rotating)
+[ ] music and sound effects
 
 -- 0.1
 [V] config corruption
 [ ] monitor selection (lost due to the apocalypse)
 [ ] saving upon change (options), save always instead
-[ ] tarball with sources for linux
-[ ] installer for windows
-[ ] refactor pimpl classes to make them simpler (compile time is good enough anyway)
+[V] tarball with sources for linux
+[V] installer for windows
 [ ] rename executables
-[ ] select the level on startup
 [ ] create an icon for the windows executable
-[ ] music and sound effects
+[ ] remember the previous selected item in menu when navigating menus
+[ ] hide the console in release build

@@ -151,7 +151,7 @@ public:
             prev = glyph_index;
         }
         BitmapPtr fcropped = make_bitmap_ptr( FreeImage_Copy(_fbitmap.get(), 0, pxHeight * 1.3f, pen_x, 0) );
-//        bool res = FreeImage_Save(FIF_PNG, fcropped.get(), "/home/tr/Desktop/test.png");
+//        bool res = FreeImage_Save(FIF_PNG, fcropped.get(), "/tmp/test.png");
 //        (void)res;
         return fcropped;
     }
