@@ -6,12 +6,12 @@
 [ ] music and sound effects
 [ ] rename executables
 [ ] create an icon for the windows executable
-[ ] saving upon change (options), save always instead
 [ ] remember the previous selected item in menu when navigating menus
-[ ] monitor selection (lost due to the apocalypse)
 
 -- 0.1
 [V] config corruption
 [V] tarball with sources for linux
 [V] installer for windows
 [V] hide the console in release build (windows)
+[V] saving upon change (options), save always instead [save new resolution to config on monitor changed]
+[V] monitor selection (lost due to the apocalypse) [use index instead of name]

@@ -724,13 +724,7 @@ int desktop_main() {
         int newValue = boost::lexical_cast<int>(optionsMenuStructure.initialSpeed->value());
         config.initialLevel = newValue;
     });
-    menu.onValueChanged(optionsMenuStructure.monitor, [&]() {
-        std::string monitor = optionsMenuStructure.monitor->value();
-        config.monitor = monitor;
-        auto strModes = selectModeNames(getMonitorModes(monitor));
-        optionsMenuStructure.resolution->updateValues(strModes, strModes.back());
-    });
-    menu.onValueChanged(optionsMenuStructure.resolution, [&]() {
+    auto onResolutionChanged = [&]() {
         auto modes = getMonitorModes(optionsMenuStructure.monitor->value());
         std::string strMode = optionsMenuStructure.resolution->value();
         auto it = std::find_if(begin(modes), end(modes), [&](decltype(modes.front()) tuple) {
@@ -740,7 +734,15 @@ int desktop_main() {
         MonitorMode mode = std::get<1>(*it);
         config.screenWidth = mode.width;
         config.screenHeight = mode.height;
+    };
+    menu.onValueChanged(optionsMenuStructure.monitor, [&]() {
+        std::string monitor = optionsMenuStructure.monitor->value();
+        config.monitor = monitor;
+        auto strModes = selectModeNames(getMonitorModes(monitor));
+        optionsMenuStructure.resolution->updateValues(strModes, strModes.back());
+        onResolutionChanged();
     });
+    menu.onValueChanged(optionsMenuStructure.resolution, onResolutionChanged);
 
     // define these here so that the closure below doesn't capture
     // dead stack variables

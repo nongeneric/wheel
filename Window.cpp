@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <iostream>
+#include <boost/lexical_cast.hpp>
 
 std::vector<Monitor> getMonitors() {
     std::vector<Monitor> res;
@@ -14,19 +15,18 @@ std::vector<Monitor> getMonitors() {
         for (int j = 0; j < modesCount; ++j) {
             vmodes.push_back({modes[j].width, modes[j].height, modes[j].refreshRate});
         }
-        res.push_back({glfwGetMonitorName(monitors[i]), vmodes});
+        auto name = boost::lexical_cast<std::string>(i);
+        res.push_back({name, vmodes});
     }
     return res;
 }
 
 GLFWmonitor* findMonitor(std::string name) {
     int count;
+    int index = boost::lexical_cast<int>(name);
     GLFWmonitor** monitors = glfwGetMonitors(&count);
-    for (int i = 0; i < count; ++i) {
-        if (glfwGetMonitorName(monitors[i]) == name) {
-            return monitors[i];
-        }
-    }
+    if (count > index)
+        return monitors[index];
     return glfwGetPrimaryMonitor();
 }
 
