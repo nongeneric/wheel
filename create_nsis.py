@@ -9,14 +9,23 @@ def get_full_path(dll):
 	return filtered[0]
 
 def get_deps(dll):
-	return check_output("objdump -p " + dll + " | awk '/DLL Name/ { print $3 }'", shell=True).strip().split()
-	
+    return check_output("objdump -p " + dll + " | awk '/DLL Name/ { print $3 }'", shell=True).strip().split()
+
+known = set()
 def get_relevant_deps(exe):
-	return filter(lambda p: p is not None, map(get_full_path, get_deps(exe)))
+    if exe in known:
+        return []
+    print exe
+    deps = map(get_full_path, get_deps(exe))
+    deps = filter(lambda p: p is not None, deps)
+    known.add(exe)
+    for d in deps:
+        deps.extend(get_relevant_deps(d))
+    return deps
 	
 template = 'installer.nsi'
 patched = 'installer_patched.nsi'
-	
+
 deps = get_relevant_deps("desktop.exe")
 deps.extend(['desktop.exe', 'cube.ply', 'config.xml', 'lang.en.xml', 'lang.ru.xml', 'LiberationSans-Regular.ttf'])
 files_list = map(lambda d: "  File \"{}\"\n".format(d), deps)
