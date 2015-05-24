@@ -4,6 +4,8 @@
 #include <glm/glm.hpp>
 
 #include <boost/chrono.hpp>
+#include <vector>
+
 using fseconds = boost::chrono::duration<float>;
 
 class ISpreadAnimationLine {

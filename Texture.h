@@ -6,7 +6,7 @@ class Texture {
     unsigned _tex;
 public:
     Texture();
-    void setImage(BitmapPtr bitmap);
+    void setImage(Bitmap bitmap);
     void bind();
     void unbind();
 };

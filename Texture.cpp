@@ -16,15 +16,15 @@ Texture::Texture() {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 }
 
-void Texture::setImage(BitmapPtr bitmap) {
+void Texture::setImage(Bitmap bitmap) {
     BindLock<Texture> lock(*this);    
-    unsigned height = FreeImage_GetHeight(bitmap.get());
-    unsigned bpp = FreeImage_GetBPP(bitmap.get());
-    //assert(bpp == 8 || bpp == 32);
+    unsigned height = bitmap.height();
+    unsigned bpp = bitmap.bpp();
+    assert(bpp == 8 || bpp == 32);
     unsigned format = bpp == 8 ? GL_RED : GL_RGBA;
     unsigned internal = bpp == 8 ? GL_R8 : GL_RGBA8;
-    unsigned width = bpp == 8 ? FreeImage_GetPitch(bitmap.get()) : FreeImage_GetWidth(bitmap.get());
-    glTexImage2D(GL_TEXTURE_2D, 0, internal, width, height, 0, format, GL_UNSIGNED_BYTE, FreeImage_GetBits(bitmap.get()));
+    unsigned width = bpp == 8 ? bitmap.pitch() : bitmap.width();
+    glTexImage2D(GL_TEXTURE_2D, 0, internal, width, height, 0, format, GL_UNSIGNED_BYTE, bitmap.data());
 }
 
 void Texture::bind() {

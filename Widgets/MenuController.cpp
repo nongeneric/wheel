@@ -4,6 +4,8 @@
 #include "Menu.h"
 #include "MenuLeaf.h"
 
+#include <algorithm>
+
 void MenuController::advanceFocus(int delta) {
     _leaf->highlight(false);
     auto leafs = _menu->leafs();

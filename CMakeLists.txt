@@ -20,7 +20,7 @@ else()
     add_definitions(-DDEBUG)
     set(CMAKE_CXX_FLAGS "-g -O0 ${CMAKE_CXX_FLAGS}")
 endif()
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -std=c++11 ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -std=c++14 ${CMAKE_CXX_FLAGS}")
 
 include_directories(SYSTEM /usr/include/freetype2)
 include_directories(C:/mingw-w64/mingw64/include/freetype2)
@@ -72,6 +72,8 @@ Widgets/Painter2D.h
 Widgets/Painter2D.cpp
 Widgets/TextEdit.h
 Widgets/TextEdit.cpp
+Bitmap.h
+Bitmap.cpp
 Tetris.h
 Tetris.cpp
 Program.h
@@ -95,7 +97,6 @@ set(WINDOWS_LIB_DEPS
     glfw3
     glew32
     opengl32
-    freeimage
     z
 )
 
@@ -108,7 +109,6 @@ set(LINUX_LIB_DEPS
     Xi
     pthread
     bz2
-    freeimage-3.16.0
     glfw
 )
 

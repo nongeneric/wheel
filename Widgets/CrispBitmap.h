@@ -11,7 +11,7 @@ public:
     CrispBitmap();
     CrispBitmap(CrispBitmap&&);
     ~CrispBitmap();
-    void setBitmap(BitmapPtr bitmap);
+    void setBitmap(Bitmap bitmap);
     void setColor(glm::vec3 color);
     void animate(fseconds) override;
     void draw() override;

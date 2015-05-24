@@ -76,7 +76,7 @@ void TetrisConfig::save() {
     pt.put("tetris.<xmlattr>.language", language);
     writeHighscores(highscoreLines, "tetris.lineHighscores.highscore", pt);
     writeHighscores(highscoreScore, "tetris.scoreHighscores.highscore", pt);
-    boost::property_tree::xml_writer_settings<char> settings('\t', 1);
+    boost::property_tree::xml_writer_settings<std::string> settings('\t', 1);
     write_xml(configName, pt, std::locale(), settings);
 }
 
