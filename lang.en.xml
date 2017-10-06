@@ -3,7 +3,7 @@
 	<string id="MainMenu_Resume" value="Resume"/>
 	<string id="MainMenu_Restart" value="Restart"/>
 	<string id="MainMenu_Options" value="Options"/>
-	<string id="MainMenu_HallOfFame" value="Hall Of Fame"/>
+	<string id="MainMenu_HallOfFame" value="Hall of Fame"/>
 	<string id="MainMenu_Exit" value="Exit"/>
 	<string id="OptionsMenu_Back" value="Back"/>
 	<string id="OptionsMenu_Resolution" value="Resolution"/>

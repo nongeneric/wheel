@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <functional>
+#include <numeric>
+#include <vector>
 
 namespace rstd {
     template<typename T, typename Cont>

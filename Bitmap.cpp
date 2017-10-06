@@ -67,7 +67,7 @@ unsigned Bitmap::pitch() const {
 }
 
 unsigned Bitmap::pixel(unsigned x, unsigned y) const {
-    auto res = *(unsigned const*)&_vec->at(pixelPos(x, y)) & ~(-1 << _bpp);
+    auto res = *(unsigned const*)&_vec->at(pixelPos(x, y)) & ~(-1u << _bpp);
     auto arr = (char*)&res;
     std::reverse(arr, arr + _bpp / 8);
     return res;

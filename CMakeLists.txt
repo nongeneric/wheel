@@ -20,7 +20,7 @@ else()
     add_definitions(-DDEBUG)
     set(CMAKE_CXX_FLAGS "-g -O0 ${CMAKE_CXX_FLAGS}")
 endif()
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -std=c++14 ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -std=c++17 ${CMAKE_CXX_FLAGS}")
 
 include_directories(SYSTEM /usr/include/freetype2)
 include_directories(C:/mingw-w64/mingw64/include/freetype2)
