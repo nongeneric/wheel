@@ -1,6 +1,6 @@
 #include "Text.h"
 
-#include <ft2build.h>
+#include <freetype2/ft2build.h>
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
 
@@ -34,20 +34,6 @@ std::u32string tou32str(std::string utf8) {
     return boost::locale::conv::utf_to_utf<char32_t>(utf8);
 }
 
-void dump(Bitmap bitmap) {
-    FILE* f = fopen("/d/out.txt", "w");
-    assert(f);
-    auto pos = (char*)bitmap.data();
-    for (auto row = 0u; row < bitmap.height(); ++row) {
-        for (auto x = 0u; x < bitmap.width(); ++x) {
-            fprintf(f, "%02x", (unsigned char)pos[x]);
-        }
-        pos += bitmap.pitch();
-        fprintf(f, "\n");
-    }
-    fclose(f);
-}
-
 class Text::impl {
     FT_Face face;
     std::map<const CacheKey, CacheEntry> _cache;
@@ -72,7 +58,6 @@ class Text::impl {
                       slot->bitmap.pitch,
                       8, true)
                 : Bitmap(0, 0, 8);
-        dump(glyph_bitmap);
         CacheEntry entry { slot->bitmap_top, slot->bitmap_left, slot->advance.x, glyph_bitmap };
         _cache[key] = entry;
         return entry;
@@ -123,12 +108,7 @@ public:
             pen_x += entry.advanceX / 64;
             prev = glyph_index;
         }
-        //dump(_fbitmap);
-        auto fcropped = _fbitmap.copy(0, pxHeight * 1.3f, pen_x, 0);
-//        bool res = FreeImage_Save(FIF_PNG, fcropped.get(), "/tmp/test.png");
-//        (void)res;
-        return fcropped;
-        //return _fbitmap;
+        return _fbitmap.copy(0, pxHeight * 1.3f, pen_x, 0);
     }
 };
 

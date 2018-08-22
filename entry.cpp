@@ -46,6 +46,7 @@
 #include <map>
 #include <stack>
 #include <array>
+#include <iostream>
 
 namespace chrono = boost::chrono;
 
@@ -190,8 +191,8 @@ public:
 bool loadConfig(TetrisConfig& config) {
     try {
         config.load();
-    } catch (...) {
-        std::cout << "an error ocurred while loading the config file";
+    } catch (std::exception& e) {
+        std::cout << "an error ocurred while loading the config file: " << e.what();
         return false;
     }
     return true;
@@ -864,7 +865,7 @@ int desktop_main() {
     return 0;
 }
 
-int desktop_entry() {
+int main() {
     try {
         return desktop_main();
     } catch (std::exception& e) {

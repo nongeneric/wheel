@@ -2,7 +2,7 @@
 #include "Mesh.h"
 
 ScaleAnimation::ScaleAnimation(fseconds duration, GLfloat from, GLfloat to)
-    : _duration(duration), _from(from), _to(to), _isCompleted(false) { }
+    : _elapsed(0), _duration(duration), _from(from), _to(to), _isCompleted(false) { }
 
 void ScaleAnimation::animate(fseconds dt, std::function<Mesh &()> mesh) {
     if (_isCompleted)
