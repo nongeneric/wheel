@@ -830,7 +830,7 @@ int desktop_main() {
             HighscoreRecord newRecord { "", stats.lines, stats.score, config.initialLevel };
             newLinesHighscore = updateHighscores(newRecord, config.highscoreLines, true);
             newScoreHighscore = updateHighscores(newRecord, config.highscoreScore, false);
-            stateManager.goToNameInputState(newLinesHighscore, newScoreHighscore, [&](std::string newName) {                
+            stateManager.goToNameInputState(newLinesHighscore, newScoreHighscore, [&](std::string newName) {
                 if (newLinesHighscore != -1) {
                     config.highscoreLines.at(newLinesHighscore).name = newName;
                 }

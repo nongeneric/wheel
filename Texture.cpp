@@ -29,10 +29,8 @@ void Texture::setImage(Bitmap bitmap) {
 
 void Texture::bind() {
     glBindTexture(GL_TEXTURE_2D, _tex);
-    glActiveTexture(_tex);
 }
 
 void Texture::unbind() {
     glBindTexture(GL_TEXTURE_2D, 0);
-    glActiveTexture(0);
 }

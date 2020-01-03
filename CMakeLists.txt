@@ -37,6 +37,8 @@ file(COPY LiberationSans-Regular.ttf DESTINATION .)
 file(COPY lang.en.xml DESTINATION .)
 file(COPY lang.ru.xml DESTINATION .)
 
+add_definitions(-DGLM_FORCE_CTOR_INIT)
+
 set(SRC_LIST
     Camera.h
     Camera.cpp

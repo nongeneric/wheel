@@ -30,6 +30,24 @@ GLFWmonitor* findMonitor(std::string name) {
     return glfwGetPrimaryMonitor();
 }
 
+void glDebugCallbackFunction(GLenum source,
+            GLenum ,
+            GLuint ,
+            GLenum severity,
+            GLsizei ,
+            const GLchar *message,
+            const void *) {
+    auto sourceStr = source == GL_DEBUG_SOURCE_API ? "Api"
+                   : source == GL_DEBUG_SOURCE_WINDOW_SYSTEM ? "WindowSystem"
+                   : source == GL_DEBUG_SOURCE_SHADER_COMPILER ? "ShaderCompiler"
+                   : source == GL_DEBUG_SOURCE_THIRD_PARTY ? "ThirdParty"
+                   : source == GL_DEBUG_SOURCE_APPLICATION ? "Application"
+                   : "Other";
+    std::cout << "gl callback [source" << sourceStr << "]: " << message << std::endl;
+    if (severity == GL_DEBUG_SEVERITY_HIGH)
+        exit(1);
+}
+
 Window::Window(std::string title, bool fullscreen, unsigned width, unsigned height, std::string monitor) {
     if (!glfwInit())
         throw std::runtime_error("glfw init failure");
@@ -41,9 +59,14 @@ Window::Window(std::string title, bool fullscreen, unsigned width, unsigned heig
     if (_window == nullptr)
         throw std::runtime_error("window init failure");
     glfwMakeContextCurrent(_window);
+
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK)
         throw std::runtime_error("glew init failure");
+
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(&glDebugCallbackFunction, nullptr);
+
     std::cout << (char*)glGetString(GL_VERSION) << std::endl;
 }
 
