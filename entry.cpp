@@ -129,7 +129,7 @@ std::string fragmentShader =
         "vec4 getDiffuseFactor(vec3 direction, vec4 baseColor) {"
         "   float factor = dot(normalize(f_normal), -direction);"
         "   vec4 color;"
-        "   if (factor > 0) {"
+        "   if (factor > 0.0) {"
         "       color = baseColor * factor;"
         "   } else {"
         "       color = vec4(0.0, 0.0, 0.0, 0.0);"
@@ -744,6 +744,8 @@ int desktop_main() {
         onResolutionChanged();
     });
     menu.onValueChanged(optionsMenuStructure.resolution, onResolutionChanged);
+
+    config.monitor = optionsMenuStructure.monitor->value();
 
     // define these here so that the closure below doesn't capture
     // dead stack variables

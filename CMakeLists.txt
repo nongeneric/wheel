@@ -31,6 +31,8 @@ else()
     include_directories(SYSTEM ${FREETYPE2_INCLUDE_DIRS})
 endif()
 
+include_directories(${PROJECT_SOURCE_DIR})
+
 file(COPY config.xml DESTINATION .)
 file(COPY cube.ply DESTINATION .)
 file(COPY LiberationSans-Regular.ttf DESTINATION .)

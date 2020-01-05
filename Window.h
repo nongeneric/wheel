@@ -31,9 +31,4 @@ struct Monitor {
     std::vector<MonitorMode> modes;
 };
 
-class MonitorManager {
-public:
-
-};
-
 std::vector<Monitor> getMonitors();
