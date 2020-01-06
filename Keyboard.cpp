@@ -1,7 +1,9 @@
 #include "Keyboard.h"
 #include "rstd.h"
 
-void Keyboard::invokeHandler(InputCommand command, const std::map<InputCommand, std::vector<Keyboard::Handler> > &handlers) {
+void Keyboard::invokeHandler(
+    InputCommand command, const std::map<InputCommand, std::vector<Keyboard::Handler>>& handlers)
+{
     auto it = handlers.find(command);
     if (it != end(handlers)) {
         for (Handler const& h : it->second) {
@@ -20,24 +22,31 @@ void Keyboard::readGamepadState() {
     }
 }
 
-int Keyboard::readCommandState(InputCommand command) {
+std::tuple<int, int> Keyboard::readCommandState(InputCommand command) {
     auto window = _window->handle();
 
     if (auto it = _keyBindings.find(command); it != _keyBindings.end()) {
-        if (glfwGetKey(window, it->second) == GLFW_PRESS) {
+        auto key = it->second;
+        auto state = glfwGetKey(window, key);
+        int prev = state;
+        std::swap(prev, _sharedPrevKeyStates[key]);
+        if (state == GLFW_PRESS) {
             _inputDeviceName = "Keyboard";
-            return GLFW_PRESS;
+            return {prev, state};
         }
     }
 
     if (auto it = _gamepadBindings.find(command); it != _gamepadBindings.end()) {
-        if (_gamepad.buttons[it->second] == GLFW_PRESS) {
+        auto button = it->second;
+        int prev = _gamepad.buttons[button];
+        std::swap(prev, _sharedPrevKeyStates[button]);
+        if (_gamepad.buttons[button] == GLFW_PRESS) {
             _inputDeviceName = _gamepadName;
-            return GLFW_PRESS;
+            return {prev, _gamepad.buttons[button]};
         }
     }
 
-    return GLFW_RELEASE;
+    return {GLFW_RELEASE, GLFW_RELEASE};
 }
 
 Keyboard::Keyboard(Window *window) : _window(window) {
@@ -65,6 +74,9 @@ Keyboard::Keyboard(Window *window) : _window(window) {
         {InputCommand::GoBack, GLFW_GAMEPAD_BUTTON_CIRCLE},
         {InputCommand::Confirm, GLFW_GAMEPAD_BUTTON_CROSS},
     };
+
+    // assume the keyboard and gamepad keys are different
+    assert(_gamepadBindings.rbegin()->second < _keyBindings.begin()->second);
 }
 
 void Keyboard::advance(fseconds dt) {
@@ -73,8 +85,7 @@ void Keyboard::advance(fseconds dt) {
         _onAdvanceHandler(_window, _currentState);
     }
     for (auto& [command, state] : _stateSpecificKeyStates[_currentState]) {
-        int curState = readCommandState(command);
-        int prevState =  _sharedPrevKeyStates[command];
+        auto [prevState, curState] = readCommandState(command);
         if (curState == GLFW_PRESS && prevState == GLFW_RELEASE) {
             invokeHandler(command, _stateDownHandlers[_currentState]);
             invokeHandler(command, _stateRepeatHandlers[_currentState]);
@@ -89,12 +100,11 @@ void Keyboard::advance(fseconds dt) {
             state.elapsed -= state.repeat;
             invokeHandler(command, _stateRepeatHandlers[_currentState]);
         }
-        _sharedPrevKeyStates[command] = curState;
         state.elapsed += dt;
     }
 }
 
-void Keyboard::onDown(InputCommand command, State handlerId, std::function<void ()> handler) {
+void Keyboard::onDown(InputCommand command, State handlerId, std::function<void()> handler) {
     auto it = _stateSpecificKeyStates[handlerId].find(command);
     if (it == end(_stateSpecificKeyStates[handlerId])) {
         _stateSpecificKeyStates[handlerId][command] = { fseconds(), fseconds(1 << 10) };
@@ -116,7 +126,8 @@ void Keyboard::onAdvance(OnAdvanceHandler handler) {
 }
 
 void Keyboard::stopRepeats(InputCommand command) {
-    if (readCommandState(command) == GLFW_PRESS) {
+    auto [_, state] = readCommandState(command);
+    if (state == GLFW_PRESS) {
         _activeRepeats[command] = false;
     }
 }

@@ -2,6 +2,7 @@
 
 #include "Window.h"
 #include <map>
+#include <tuple>
 #include <boost/chrono.hpp>
 
 using fseconds = boost::chrono::duration<float>;
@@ -39,7 +40,7 @@ class Keyboard {
     typedef std::function<void()> Handler;
     State _currentState;
     fseconds _repeatTime = fseconds(0.3f);
-    std::map<InputCommand, int> _sharedPrevKeyStates;
+    std::map<int, int> _sharedPrevKeyStates;
     std::map<State, std::map<InputCommand, KeyState>> _stateSpecificKeyStates;
     std::map<State, std::map<InputCommand, std::vector<Handler>>> _stateDownHandlers;
     std::map<State, std::map<InputCommand, std::vector<Handler>>> _stateRepeatHandlers;
@@ -54,7 +55,7 @@ class Keyboard {
 
     void invokeHandler(InputCommand command, std::map<InputCommand, std::vector<Handler>> const& handlers);
     void readGamepadState();
-    int readCommandState(InputCommand command);
+    std::tuple<int, int> readCommandState(InputCommand command);
 
 public:
     Keyboard(Window* window);

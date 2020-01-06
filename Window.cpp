@@ -51,10 +51,8 @@ void glDebugCallbackFunction(GLenum source,
 Window::Window(std::string title, bool fullscreen, unsigned width, unsigned height, std::string monitor) {
     if (!glfwInit())
         throw std::runtime_error("glfw init failure");
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
     _window = glfwCreateWindow(width, height, title.c_str(), fullscreen ? findMonitor(monitor) : NULL, NULL);
     if (_window == nullptr)
         throw std::runtime_error("window init failure");
