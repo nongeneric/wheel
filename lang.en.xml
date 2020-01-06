@@ -14,6 +14,7 @@
 	<string id="Menu_No" value="No"/>
 	<string id="HUD_Lines" value="Lines: %d"/>
 	<string id="HUD_Score" value="Score: %d"/>
+    <string id="HUD_InputDevice" value="Device: %d"/>
 	<string id="HUD_Level" value="Level: %d"/>
 	<string id="HUD_FPS" value="FPS: %d"/>
 	<string id="GameOverScreen_NewHighscore" value="New Highscore!"/>

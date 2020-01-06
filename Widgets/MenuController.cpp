@@ -40,17 +40,17 @@ MenuController::MenuController(Menu *menu, Keyboard *keys)
 {
     setActiveMenu(menu, false);
     clearHighlights();
-    keys->onDown(GLFW_KEY_DOWN, State::Menu, [&]() {
+    keys->onDown(InputCommand::MoveDown, State::Menu, [&]() {
         if (_customScreen)
             return;
         advanceFocus(1);
     });
-    keys->onDown(GLFW_KEY_UP, State::Menu, [&]() {
+    keys->onDown(InputCommand::MoveUp, State::Menu, [&]() {
         if (_customScreen)
             return;
         advanceFocus(-1);
     });
-    keys->onDown(GLFW_KEY_ENTER, State::Menu, [&]() {
+    keys->onDown(InputCommand::Confirm, State::Menu, [&]() {
         if (_customScreen)
             return;
         if (_leaf->values().empty()) {
@@ -58,15 +58,15 @@ MenuController::MenuController(Menu *menu, Keyboard *keys)
             _handlers[_leaf]();
         }
     });
-    keys->onDown(GLFW_KEY_ESCAPE, State::Menu, [&]() { back(); });
-    keys->onRepeat(GLFW_KEY_LEFT, fseconds(0.3f), State::Menu, [&]() {
+    keys->onDown(InputCommand::GoBack, State::Menu, [&]() { back(); });
+    keys->onRepeat(InputCommand::MoveLeft, fseconds(0.3f), State::Menu, [&]() {
         if (_customScreen)
             return;
         if (_leaf->values().empty())
             return;
         advanceValue(-1, _leaf);
     });
-    keys->onRepeat(GLFW_KEY_RIGHT, fseconds(0.3f), State::Menu, [&]() {
+    keys->onRepeat(InputCommand::MoveRight, fseconds(0.3f), State::Menu, [&]() {
         if (_customScreen)
             return;
         if (_leaf->values().empty())

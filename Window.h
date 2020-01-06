@@ -14,10 +14,9 @@ public:
     Window(std::string title, bool fullscreen, unsigned width, unsigned height, std::string monitor);
     void swap();
     bool shouldClose();
-    int getKey(int key);
-    int getMouseButton(int button);
     glm::vec2 getCursorPos();
     glm::vec2 getFramebufferSize();
+    GLFWwindow* handle() const;
 };
 
 struct MonitorMode {

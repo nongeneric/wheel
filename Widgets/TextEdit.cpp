@@ -36,22 +36,35 @@ char withShift(int key) {
     return (char)key;
 }
 
-TextEdit::TextEdit(Keyboard *keyboard, Text *text)
+TextEdit::TextEdit(Keyboard* keyboard, Text* text)
     : _keys(keyboard), _line(text, 0.06f), _cursor(0), _shown(false)
 {
-    for (unsigned key : printableKeys) {
-        _keys->onRepeat(key, fseconds(0.4f), State::NameInput, [&, key]() {
-            if (_text.size() > 11)
-                return;
-            _text += _keys->isShiftPressed() ? withShift(key) : (char)std::tolower(key);
-            _cursor++;
-        });
-    }
-    _keys->onRepeat(GLFW_KEY_BACKSPACE, fseconds(0.4f), State::NameInput, [&](){
-        if (!_shown || _text.empty() || _cursor == 0)
+    _keys->onAdvance([=] (auto window, auto state) {
+        if (state != State::NameInput)
             return;
-        _text = _text.substr(0, _cursor - 1) + _text.substr(_cursor);;
-        _cursor = std::max(0, _cursor - 1);
+
+        for (unsigned key : printableKeys) {
+            auto keyState = glfwGetKey(window->handle(), key);
+            if (keyState == GLFW_PRESS && _keyStates[key].prev == GLFW_RELEASE) {
+                if (_text.size() > 11)
+                    return;
+                auto isShiftPressed =
+                    glfwGetKey(window->handle(), GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
+                    glfwGetKey(window->handle(), GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+                _text += isShiftPressed ? withShift(key) : (char)std::tolower(key);
+                _cursor++;
+            }
+            _keyStates[key].prev = keyState;
+        }
+
+        auto keyState = glfwGetKey(window->handle(), GLFW_KEY_BACKSPACE);
+        if (keyState == GLFW_PRESS && _keyStates[GLFW_KEY_BACKSPACE].prev == GLFW_RELEASE) {
+            if (!_shown || _text.empty() || _cursor == 0)
+                return;
+            _text = _text.substr(0, _cursor - 1) + _text.substr(_cursor);;
+            _cursor = std::max(0, _cursor - 1);
+        }
+        _keyStates[GLFW_KEY_BACKSPACE].prev = keyState;
     });
 }
 

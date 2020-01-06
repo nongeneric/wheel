@@ -13,30 +13,57 @@ enum class State {
     HighScores
 };
 
+enum class InputCommand {
+    MoveLeft,
+    MoveRight,
+    MoveUp,
+    MoveDown,
+    RotateLeft,
+    RotateRight,
+    RotateRightAlt,
+    OpenMenu,
+    GoBack,
+    Confirm,
+    EnterPrintableChar,
+};
+
 std::string strState(State);
+
+using OnAdvanceHandler = std::function<void(Window*, State)>;
 
 class Keyboard {
     struct KeyState {
         fseconds elapsed;
-        fseconds repeat;        
+        fseconds repeat;
     };
     typedef std::function<void()> Handler;
     State _currentState;
     fseconds _repeatTime = fseconds(0.3f);
-    std::map<int, int> _sharedPrevKeyStates;
-    std::map<State, std::map<int, KeyState>> _stateSpecificKeyStates;
-    std::map<State, std::map<int, std::vector<Handler>>> _stateDownHandlers;
-    std::map<State, std::map<int, std::vector<Handler>>> _stateRepeatHandlers;
-    std::map<int, bool> _activeRepeats;    
+    std::map<InputCommand, int> _sharedPrevKeyStates;
+    std::map<State, std::map<InputCommand, KeyState>> _stateSpecificKeyStates;
+    std::map<State, std::map<InputCommand, std::vector<Handler>>> _stateDownHandlers;
+    std::map<State, std::map<InputCommand, std::vector<Handler>>> _stateRepeatHandlers;
+    std::map<InputCommand, bool> _activeRepeats;
+    std::map<InputCommand, int> _keyBindings;
+    std::map<InputCommand, int> _gamepadBindings;
     Window* _window;
-    void invokeHandler(int key, std::map<int, std::vector<Handler>> const& handlers);
+    GLFWgamepadstate _gamepad;
+    std::string _gamepadName;
+    OnAdvanceHandler _onAdvanceHandler;
+    std::string _inputDeviceName;
+
+    void invokeHandler(InputCommand command, std::map<InputCommand, std::vector<Handler>> const& handlers);
+    void readGamepadState();
+    int readCommandState(InputCommand command);
+
 public:
     Keyboard(Window* window);
     void advance(fseconds dt);
-    void onDown(int key, State handlerId, std::function<void()> handler);
-    void onRepeat(int key, fseconds every, State handlerId, std::function<void()> handler);
-    void stopRepeats(int key);
+    void onDown(InputCommand command, State handlerId, std::function<void()> handler);
+    void onRepeat(InputCommand command, fseconds every, State handlerId, std::function<void()> handler);
+    void onAdvance(OnAdvanceHandler handler);
+    void stopRepeats(InputCommand command);
     void enableHandler(State id);
     void disableHandler(State id);
-    bool isShiftPressed();
+    const std::string& inputDeviceName() const;
 };

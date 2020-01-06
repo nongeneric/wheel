@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.11)
 project(wheel)
 
-set(wheel_VERSION "0.1.0")
+set(wheel_VERSION "0.1.1")
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -101,7 +101,7 @@ set(SRC_LIST
 
 if(WIN32)
     set(LIB_DEPS
-        glfw3
+        glfw3dll
         glew32
         opengl32
         z

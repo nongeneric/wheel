@@ -14,6 +14,7 @@
 	<string id="Menu_No" value="Нет"/>
 	<string id="HUD_Lines" value="Линий: %d"/>
 	<string id="HUD_Score" value="Очков: %d"/>
+    <string id="HUD_InputDevice" value="Устройство: %d"/>
 	<string id="HUD_Level" value="Уровень: %d"/>
 	<string id="HUD_FPS" value="FPS: %d"/>
 	<string id="GameOverScreen_NewHighscore" value="Новый рекорд!"/>

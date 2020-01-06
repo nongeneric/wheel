@@ -10,8 +10,6 @@ class Camera {
     glm::vec2 _cursor{ 300, 300 };
 public:
     glm::mat4 view();
-    void updateKeyboard(bool left, bool right, bool up, bool down);
-    void updateMouse(Window& window);
     void reset();
 };
 
@@ -24,6 +22,6 @@ class CameraController {
     bool _upPressed;
     bool _downPressed;
 public:
-    CameraController(Window* window, Camera *camera, Keyboard* keys);
+    CameraController(Window* window, Camera *camera);
     void advance();
 };

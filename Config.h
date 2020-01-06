@@ -27,6 +27,7 @@ struct HighscoreRecord {
     X(OptionsMenu_InitialLevel) \
     X(HUD_Lines) \
     X(HUD_Score) \
+    X(HUD_InputDevice) \
     X(HUD_Level) \
     X(HUD_FPS) \
     X(GameOverScreen_NewHighscore) \

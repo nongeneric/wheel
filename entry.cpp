@@ -500,7 +500,7 @@ public:
     {
         keys->enableHandler(State::Game);
         // State::Game
-        _keys->onDown(GLFW_KEY_ESCAPE, State::Game, [&]() {
+        _keys->onDown(InputCommand::OpenMenu, State::Game, [&]() {
             goTo(State::Menu);
         });
         // State::Menu
@@ -508,14 +508,14 @@ public:
             goTo(State::Game);
         });
         // State::NameInput
-        _keys->onDown(GLFW_KEY_ENTER, State::NameInput, [&]() {
+        _keys->onDown(InputCommand::Confirm, State::NameInput, [&]() {
             if (_newLinesHighscorePos == -1 && _newScoreHighscorePos == -1)
                 goTo(State::Menu);
             else
                 goToHighscoresState(_newLinesHighscorePos, _newScoreHighscorePos);
         });
         // State::HighScores
-        _keys->onDown(GLFW_KEY_ESCAPE, State::HighScores, [&]() {
+        _keys->onDown(InputCommand::GoBack, State::HighScores, [&]() {
             goTo(State::Menu);
         });
     }
@@ -613,7 +613,7 @@ int desktop_main() {
     Tetris tetris(g_TetrisHor, g_TetrisVert, Generator());
     tetris.setInitialLevel(config.initialLevel);
     Camera camera;
-    CameraController camController(&window, &camera, &keys);
+    CameraController camController(&window, &camera);
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -625,7 +625,7 @@ int desktop_main() {
 
     Text text;    
 
-    HudList hudList(4, &text, 0.04f);
+    HudList hudList(5, &text, 0.03f);
     WindowLayout hudLayout(&hudList, false);
     fseconds delay = fseconds(1.0f);
 
@@ -659,41 +659,41 @@ int desktop_main() {
     bool normalStep;
     bool nextPiece = false;
     bool exit = false;    
-    keys.onRepeat(GLFW_KEY_LEFT, fseconds(0.09f), State::Game, [&]() {
+    keys.onRepeat(InputCommand::MoveLeft, fseconds(0.09f), State::Game, [&]() {
         if (canManuallyMove) {
             tetris.moveLeft();
         }
     });
-    keys.onRepeat(GLFW_KEY_RIGHT, fseconds(0.09f), State::Game, [&]() {
+    keys.onRepeat(InputCommand::MoveRight, fseconds(0.09f), State::Game, [&]() {
         if (canManuallyMove) {
             tetris.moveRight();
         }
     });
-    keys.onDown(GLFW_KEY_Z, State::Game, [&]() {
+    keys.onDown(InputCommand::RotateLeft, State::Game, [&]() {
         if (canManuallyMove) {
             tetris.rotate(false);
         }
     });
-    keys.onDown(GLFW_KEY_X, State::Game, [&]() {
+    keys.onDown(InputCommand::RotateRight, State::Game, [&]() {
         if (canManuallyMove) {
             tetris.rotate(true);
         }
     });
-    keys.onDown(GLFW_KEY_UP, State::Game, [&]() {
+    keys.onDown(InputCommand::RotateRightAlt, State::Game, [&]() {
         if (canManuallyMove) {
             tetris.rotate(true);
         }
     });
-    keys.onRepeat(GLFW_KEY_DOWN, fseconds(0.03f), State::Game, [&]() {
+    keys.onRepeat(InputCommand::MoveDown, fseconds(0.03f), State::Game, [&]() {
         if (!normalStep && canManuallyMove) {
             nextPiece |= tetris.step();
         }
     });
-    keys.onDown(GLFW_KEY_LEFT, State::HighScores, [&]() { // TODO: move to highscore
+    keys.onDown(InputCommand::MoveLeft, State::HighScores, [&]() { // TODO: move to highscore
         if (hscreen.show())
             hscreen.left();
     });
-    keys.onDown(GLFW_KEY_RIGHT, State::HighScores, [&]() { // TODO: move to highscore
+    keys.onDown(InputCommand::MoveRight, State::HighScores, [&]() { // TODO: move to highscore
         if (hscreen.show())
             hscreen.right();
     });
@@ -756,10 +756,11 @@ int desktop_main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         hudList.setLine(0, vformat(config.string(StringID::HUD_Lines), tetris.getStats().lines));
-        hudList.setLine(1, vformat(config.string(StringID::HUD_Score), tetris.getStats().score));
-        hudList.setLine(2, vformat(config.string(StringID::HUD_Level), tetris.getStats().level));
+        hudList.setLine(1, vformat(config.string(StringID::HUD_InputDevice), keys.inputDeviceName()));
+        hudList.setLine(2, vformat(config.string(StringID::HUD_Score), tetris.getStats().score));
+        hudList.setLine(3, vformat(config.string(StringID::HUD_Level), tetris.getStats().level));
         if (config.showFps) {
-            hudList.setLine(3, vformat(config.string(StringID::HUD_FPS), fps.fps()));
+            hudList.setLine(4, vformat(config.string(StringID::HUD_FPS), fps.fps()));
         }
 
         glm::vec2 framebuffer = window.getFramebufferSize();
@@ -803,7 +804,7 @@ int desktop_main() {
         }
 
         if (nextPiece) {
-            keys.stopRepeats(GLFW_KEY_DOWN);
+            keys.stopRepeats(InputCommand::MoveDown);
             nextPiece = false;
         }        
 

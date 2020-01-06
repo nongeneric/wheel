@@ -4,15 +4,23 @@
 #include "TextLine.h"
 
 #include <string>
+#include <map>
 
 class Keyboard;
 class Text;
 class TextEdit : public IWidget {
+    struct KeyState {
+        int current;
+        int prev;
+    };
+
     Keyboard* _keys;
     TextLine _line;
     std::string _text;
     int _cursor;
     bool _shown;
+    std::map<int, KeyState> _keyStates;
+
 public:
     TextEdit(Keyboard* keyboard, Text* text);
     void animate(fseconds dt) override;

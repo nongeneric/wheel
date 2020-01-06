@@ -3,16 +3,6 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
 
-/*
-<tetris orthographic="true"
-        fullscreen="true"
-        showFps="false"
-        initialLevel="19">
-    <resolution width="1920"
-                height="1080"/>
-</tetris>
-*/
-
 using boost::property_tree::ptree;
 const std::string configName = "config.xml";
 
