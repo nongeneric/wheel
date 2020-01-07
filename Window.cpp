@@ -11,19 +11,10 @@ std::vector<Monitor> getMonitors() {
     auto monitorsCount = SDL_GetNumVideoDisplays();
 
     for (auto monitor = 0; monitor < monitorsCount; ++monitor) {
-        auto modesCount = SDL_GetNumDisplayModes(monitor);
-        std::vector<MonitorMode> vmodes;
-        for (auto mode = 0; mode < modesCount; ++mode) {
-            SDL_DisplayMode displayMode{};
-            SDL_GetDisplayMode(monitor, mode, &displayMode);
-            vmodes.push_back({displayMode.w, displayMode.h, displayMode.refresh_rate});
-        }
         auto name = boost::lexical_cast<std::string>(monitor);
-
         SDL_Rect rect;
         SDL_GetDisplayBounds(monitor, &rect);
-
-        res.push_back({monitor, name, rect.w, rect.h, vmodes});
+        res.push_back({monitor, name, rect.w, rect.h});
     }
     return res;
 }
@@ -59,14 +50,16 @@ Window::Window(std::string title, bool fullscreen, unsigned width, unsigned heig
 
     auto xPos = SDL_WINDOWPOS_CENTERED, yPos = SDL_WINDOWPOS_CENTERED;
 
-    auto flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
+    int flags = SDL_WINDOW_OPENGL;
     if (fullscreen) {
-        flags |= SDL_WINDOW_BORDERLESS;
+        flags |= SDL_WINDOW_BORDERLESS | SDL_WINDOW_FULLSCREEN;
         auto monitorInfo = findMonitor(monitor);
         xPos = SDL_WINDOWPOS_CENTERED_DISPLAY(monitorInfo.id);
         yPos = SDL_WINDOWPOS_CENTERED_DISPLAY(monitorInfo.id);
         width = monitorInfo.currentWidth;
         height = monitorInfo.currentHeight;
+    } else {
+        flags |= SDL_WINDOW_RESIZABLE;
     }
 
     _window = SDL_CreateWindow(title.c_str(), xPos, yPos, width, height, flags);

@@ -274,46 +274,8 @@ std::vector<std::string> genNumbers(int count) {
     return res;
 }
 
-std::vector<std::string> getMonitorNames() {
-    std::vector<std::string> vec;
-    for (Monitor& m : getMonitors()) {
-        vec.push_back(m.name);
-    }
-    return vec;
-}
-
-std::string printMode(MonitorMode mode) {
-    return vformat("%dx%d,%dHz", mode.width, mode.height, mode.refreshRate);
-}
-
-std::vector<std::tuple<std::string, MonitorMode>> getMonitorModes(std::string name) {
-    std::vector<std::tuple<std::string, MonitorMode>> res;
-    for (Monitor& monitor : getMonitors()) {
-        if (monitor.name != name)
-            continue;
-        for (MonitorMode& mode : monitor.modes) {
-            res.push_back(std::make_tuple(printMode(mode), mode));
-        }
-    }
-    return res;
-}
-
-std::vector<std::string> selectModeNames(std::vector<std::tuple<std::string, MonitorMode>> const& modes) {
-    std::vector<std::string> res;
-    for (auto& pair : modes) {
-        res.push_back(std::get<0>(pair));
-    }
-    return res;
-}
-
-std::string selectBestmode(std::string monitor, int width, int height) {
-    auto modes = getMonitorModes(monitor);
-    auto it = std::find_if(begin(modes), end(modes), [&](decltype(modes.front()) tuple) {
-        return std::get<1>(tuple).width == width && std::get<1>(tuple).height == height;
-    });
-    if (it == end(modes))
-        return std::get<0>(modes.back());
-    return std::get<0>(*it);
+std::string printResolution(const Monitor& monitor) {
+    return vformat("%dx%d", monitor.currentWidth, monitor.currentHeight);
 }
 
 OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig& config, Text& text) {
@@ -325,12 +287,14 @@ OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig& config, Text& tex
     (res.initialSpeed = new MenuLeaf(&text, genNumbers(20), config.string(StringID::OptionsMenu_InitialLevel), 0.05f))->setValue(vformat("%d", speed));
     (res.rumble = new MenuLeaf(&text, {strYes, strNo}, config.string(StringID::OptionsMenu_Rumble), 0.05f))->setValue(config.rumble ? strYes : strNo);
     (res.fullscreen = new MenuLeaf(&text, {strYes, strNo}, config.string(StringID::OptionsMenu_Fullscreen), 0.05f))->setValue(config.fullScreen ? strYes : strNo);
-    auto monitorNames = getMonitorNames();
-    std::string monitor = monitorNames.front();
-    (res.monitor = new MenuLeaf(&text, monitorNames, config.string(StringID::OptionsMenu_Monitor), 0.05f))->setValue(monitor);
-    auto modes = selectModeNames(getMonitorModes(monitor));
-    std::string mode = selectBestmode(monitor, config.screenWidth, config.screenHeight);
-    (res.resolution = new MenuLeaf(&text, modes, config.string(StringID::OptionsMenu_Resolution), 0.05f))->setValue(mode);
+    auto monitors = getMonitors();
+    std::vector<std::string> monitorNames;
+    for (auto& monitor : monitors) {
+        monitorNames.push_back(monitor.name);
+    }
+    auto resolution = printResolution(monitors.front());
+    (res.monitor = new MenuLeaf(&text, monitorNames, config.string(StringID::OptionsMenu_Monitor), 0.05f))->setValue(monitorNames.front());
+    (res.resolution = new MenuLeaf(&text, {resolution}, config.string(StringID::OptionsMenu_Resolution), 0.05f))->setValue(resolution);
     menu.addLeaf(res.back);
     menu.addLeaf(res.monitor);
     menu.addLeaf(res.initialSpeed);
@@ -733,25 +697,17 @@ int desktop_main() {
         int newValue = boost::lexical_cast<int>(optionsMenuStructure.initialSpeed->value());
         config.initialLevel = newValue;
     });
-    auto onResolutionChanged = [&]() {
-        auto modes = getMonitorModes(optionsMenuStructure.monitor->value());
-        std::string strMode = optionsMenuStructure.resolution->value();
-        auto it = std::find_if(begin(modes), end(modes), [&](decltype(modes.front()) tuple) {
-             return std::get<0>(tuple) == strMode;
-        });
-        assert(it != end(modes));
-        MonitorMode mode = std::get<1>(*it);
-        config.screenWidth = mode.width;
-        config.screenHeight = mode.height;
-    };
     menu.onValueChanged(optionsMenuStructure.monitor, [&]() {
         std::string monitor = optionsMenuStructure.monitor->value();
         config.monitor = monitor;
-        auto strModes = selectModeNames(getMonitorModes(monitor));
-        optionsMenuStructure.resolution->updateValues(strModes, strModes.back());
-        onResolutionChanged();
+        for (auto& m : getMonitors()) {
+            if (m.name == monitor) {
+                auto resolution = printResolution(m);
+                optionsMenuStructure.resolution->updateValues({resolution}, resolution);
+            }
+        }
     });
-    menu.onValueChanged(optionsMenuStructure.resolution, onResolutionChanged);
+    menu.onValueChanged(optionsMenuStructure.resolution, [&]() { });
 
     config.monitor = optionsMenuStructure.monitor->value();
 

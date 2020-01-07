@@ -20,18 +20,11 @@ public:
     void* handle() const;
 };
 
-struct MonitorMode {
-    int width;
-    int height;
-    int refreshRate;
-};
-
 struct Monitor {
     int id;
     std::string name;
     int currentWidth;
     int currentHeight;
-    std::vector<MonitorMode> modes;
 };
 
 std::vector<Monitor> getMonitors();
