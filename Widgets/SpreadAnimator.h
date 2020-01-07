@@ -3,10 +3,10 @@
 #define GLM_FORCE_CXX11
 #include <glm/glm.hpp>
 
-#include <boost/chrono.hpp>
+#include <chrono>
 #include <vector>
 
-using fseconds = boost::chrono::duration<float>;
+using fseconds = std::chrono::duration<float>;
 
 class ISpreadAnimationLine {
 public:

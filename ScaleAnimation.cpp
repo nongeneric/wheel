@@ -4,7 +4,7 @@
 ScaleAnimation::ScaleAnimation(fseconds duration, GLfloat from, GLfloat to)
     : _elapsed(0), _duration(duration), _from(from), _to(to), _isCompleted(false) { }
 
-void ScaleAnimation::animate(fseconds dt, std::function<Mesh &()> mesh) {
+void ScaleAnimation::animate(fseconds dt, std::function<Mesh&()> mesh) {
     if (_isCompleted)
         return;
     _elapsed += dt;

@@ -314,16 +314,18 @@ public:
         reset();
     }
 
-    void collect() {
+    int collect() {
         auto middle = rstd::stable_partition(_staticGrid, [](Line const& line) {
             return !rstd::all_of(line, [](CellInfo cell) {
                 return cell.state == CellState::Dying;
             });
         });
-        updateStats(std::distance(middle, end(_staticGrid)));
+        auto lines = std::distance(middle, end(_staticGrid));
+        updateStats(lines);
         Line emptyLine(_hor, { CellState::Shown });
         std::fill(begin(emptyLine) + 4, end(emptyLine) - 4, CellInfo { CellState::Hidden });
         std::fill(middle, end(_staticGrid), emptyLine);
+        return lines;
     }
 
     CellInfo getState(int x, int y) {
@@ -427,8 +429,8 @@ void Tetris::rotate(bool clockwise) {
     _impl->rotate(clockwise);
 }
 
-void Tetris::collect() {
-    _impl->collect();
+int Tetris::collect() {
+    return _impl->collect();
 }
 
 void Tetris::reset() {

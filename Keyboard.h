@@ -3,9 +3,10 @@
 #include "Window.h"
 #include <map>
 #include <tuple>
-#include <boost/chrono.hpp>
+#include <chrono>
+#include <functional>
 
-using fseconds = boost::chrono::duration<float>;
+using fseconds = std::chrono::duration<float>;
 
 enum class State {
     Game,
@@ -32,30 +33,66 @@ std::string strState(State);
 
 using OnAdvanceHandler = std::function<void(Window*, State)>;
 
+enum class KeyState : Uint8 {
+    Release,
+    Press,
+};
+
+class StateArray {
+    int _size;
+    const KeyState* _state;
+public:
+    StateArray() = default;
+    StateArray(int size, const Uint8* state);
+    KeyState at(int i) const;
+};
+
+class GameController {
+    SDL_GameController* _handle = nullptr;
+    SDL_Haptic* _haptic = nullptr;
+    int _index = 0;
+    mutable std::string _name;
+    GameController(SDL_GameController* handle, int index);
+
+public:
+    GameController() = default;
+    GameController(const GameController&) = delete;
+    GameController& operator=(const GameController&) = delete;
+    GameController(GameController&&);
+    GameController& operator=(GameController&&);
+    ~GameController();
+    bool isOpen() const;
+    bool isConnected() const;
+    std::string name() const;
+    KeyState button(SDL_GameControllerButton code) const;
+    void rumble(float strength, fseconds duration);
+    static GameController GetFirstAvailable();
+};
+
 class Keyboard {
-    struct KeyState {
+    struct KeyInfo {
         fseconds elapsed;
         fseconds repeat;
     };
     typedef std::function<void()> Handler;
     State _currentState;
     fseconds _repeatTime = fseconds(0.3f);
-    std::map<int, int> _sharedPrevKeyStates;
-    std::map<State, std::map<InputCommand, KeyState>> _stateSpecificKeyStates;
+    std::map<int, KeyState> _sharedPrevKeyStates;
+    std::map<State, std::map<InputCommand, KeyInfo>> _stateSpecificKeyStates;
     std::map<State, std::map<InputCommand, std::vector<Handler>>> _stateDownHandlers;
     std::map<State, std::map<InputCommand, std::vector<Handler>>> _stateRepeatHandlers;
     std::map<InputCommand, bool> _activeRepeats;
     std::map<InputCommand, int> _keyBindings;
-    std::map<InputCommand, int> _gamepadBindings;
+    std::map<InputCommand, SDL_GameControllerButton> _gamepadBindings;
     Window* _window;
-    GLFWgamepadstate _gamepad;
-    std::string _gamepadName;
+    GameController _gamepad;
+    StateArray _keyboard;
     OnAdvanceHandler _onAdvanceHandler;
     std::string _inputDeviceName;
 
     void invokeHandler(InputCommand command, std::map<InputCommand, std::vector<Handler>> const& handlers);
     void readGamepadState();
-    std::tuple<int, int> readCommandState(InputCommand command);
+    std::tuple<KeyState, KeyState> readCommandState(InputCommand command);
 
 public:
     Keyboard(Window* window);
@@ -67,4 +104,6 @@ public:
     void enableHandler(State id);
     void disableHandler(State id);
     const std::string& inputDeviceName() const;
+    const StateArray& keys() const;
+    void rumble(float strength, fseconds duration);
 };

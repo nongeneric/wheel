@@ -48,6 +48,7 @@ void TetrisConfig::load() {
     screenHeight = pt.get("tetris.resolution.<xmlattr>.height", 600);
     showFps = pt.get("tetris.<xmlattr>.showFps", false);
     initialLevel = pt.get("tetris.<xmlattr>.initialLevel", 0);
+    rumble = pt.get("tetris.<xmlattr>.rumble", true);
     language = pt.get("tetris.<xmlattr>.language", "en");
     readHighscores(highscoreLines, "tetris.lineHighscores", pt);
     readHighscores(highscoreScore, "tetris.scoreHighscores", pt);
@@ -63,6 +64,7 @@ void TetrisConfig::save() {
     pt.put("tetris.resolution.<xmlattr>.height", screenHeight);
     pt.put("tetris.<xmlattr>.showFps", showFps);
     pt.put("tetris.<xmlattr>.initialLevel", initialLevel);
+    pt.put("tetris.<xmlattr>.rumble", rumble);
     pt.put("tetris.<xmlattr>.language", language);
     writeHighscores(highscoreLines, "tetris.lineHighscores.highscore", pt);
     writeHighscores(highscoreScore, "tetris.scoreHighscores.highscore", pt);

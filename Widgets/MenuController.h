@@ -3,9 +3,9 @@
 #include <map>
 #include <stack>
 #include <functional>
+#include <chrono>
 
-#include <boost/chrono.hpp>
-using fseconds = boost::chrono::duration<float>;
+using fseconds = std::chrono::duration<float>;
 
 class Keyboard;
 class Menu;

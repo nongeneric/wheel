@@ -1,8 +1,8 @@
 #pragma once
 
-#include <boost/chrono.hpp>
+#include <chrono>
 
-using fseconds = boost::chrono::duration<float>;
+using fseconds = std::chrono::duration<float>;
 
 #define GLM_FORCE_CXX11
 #include <glm/glm.hpp>

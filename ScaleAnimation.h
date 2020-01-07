@@ -2,9 +2,10 @@
 
 #include <glm/glm.hpp>
 #include <GL/glew.h>
-#include <boost/chrono.hpp>
+#include <chrono>
+#include <functional>
 
-using fseconds = boost::chrono::duration<float>;
+using fseconds = std::chrono::duration<float>;
 
 class Mesh;
 class ScaleAnimation {

@@ -2,16 +2,16 @@
 
 #include "IWidget.h"
 #include "TextLine.h"
+#include "Keyboard.h"
 
 #include <string>
 #include <map>
 
-class Keyboard;
 class Text;
 class TextEdit : public IWidget {
-    struct KeyState {
-        int current;
-        int prev;
+    struct KeyStatePair {
+        KeyState current;
+        KeyState prev;
     };
 
     Keyboard* _keys;
@@ -19,7 +19,7 @@ class TextEdit : public IWidget {
     std::string _text;
     int _cursor;
     bool _shown;
-    std::map<int, KeyState> _keyStates;
+    std::map<int, KeyStatePair> _keyStates;
 
 public:
     TextEdit(Keyboard* keyboard, Text* text);

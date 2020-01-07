@@ -2,6 +2,7 @@
 
 #include "IWidget.h"
 #include "SpreadAnimator.h"
+#include <memory>
 
 class Text;
 class MenuLeaf;

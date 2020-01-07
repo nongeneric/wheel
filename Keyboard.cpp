@@ -13,24 +13,21 @@ void Keyboard::invokeHandler(
 }
 
 void Keyboard::readGamepadState() {
-    rstd::fill(_gamepad.buttons, GLFW_RELEASE);
-    for (auto n = GLFW_JOYSTICK_1; n != GLFW_JOYSTICK_LAST; ++n) {
-        if (glfwGetGamepadState(n, &_gamepad)) {
-            _gamepadName = glfwGetGamepadName(n);
-            return;
-        }
+    if (!_gamepad.isConnected()) {
+        _gamepad = GameController::GetFirstAvailable();
     }
+
+    SDL_GameControllerUpdate();
+    [[maybe_unused]] auto a = _gamepad.button(SDL_CONTROLLER_BUTTON_DPAD_LEFT);
 }
 
-std::tuple<int, int> Keyboard::readCommandState(InputCommand command) {
-    auto window = _window->handle();
-
+std::tuple<KeyState, KeyState> Keyboard::readCommandState(InputCommand command) {
     if (auto it = _keyBindings.find(command); it != _keyBindings.end()) {
         auto key = it->second;
-        auto state = glfwGetKey(window, key);
-        int prev = state;
+        auto state = _keyboard.at(key);
+        auto prev = state;
         std::swap(prev, _sharedPrevKeyStates[key]);
-        if (state == GLFW_PRESS) {
+        if (state == KeyState::Press) {
             _inputDeviceName = "Keyboard";
             return {prev, state};
         }
@@ -38,41 +35,46 @@ std::tuple<int, int> Keyboard::readCommandState(InputCommand command) {
 
     if (auto it = _gamepadBindings.find(command); it != _gamepadBindings.end()) {
         auto button = it->second;
-        int prev = _gamepad.buttons[button];
+        auto state = _gamepad.button(button);
+        auto prev = state;
         std::swap(prev, _sharedPrevKeyStates[button]);
-        if (_gamepad.buttons[button] == GLFW_PRESS) {
-            _inputDeviceName = _gamepadName;
-            return {prev, _gamepad.buttons[button]};
+        if (state == KeyState::Press) {
+            _inputDeviceName = _gamepad.name();
+            return {prev, state};
         }
     }
 
-    return {GLFW_RELEASE, GLFW_RELEASE};
+    return {KeyState::Release, KeyState::Release};
 }
 
 Keyboard::Keyboard(Window *window) : _window(window) {
+    int keyboardSize;
+    auto keyboard = SDL_GetKeyboardState(&keyboardSize);
+    _keyboard = {keyboardSize, keyboard};
+
     _keyBindings = {
-        {InputCommand::MoveLeft, GLFW_KEY_LEFT},
-        {InputCommand::MoveRight, GLFW_KEY_RIGHT},
-        {InputCommand::RotateLeft, GLFW_KEY_Z},
-        {InputCommand::RotateRight, GLFW_KEY_X},
-        {InputCommand::RotateRightAlt, GLFW_KEY_UP},
-        {InputCommand::MoveUp, GLFW_KEY_UP},
-        {InputCommand::MoveDown, GLFW_KEY_DOWN},
-        {InputCommand::OpenMenu, GLFW_KEY_ESCAPE},
-        {InputCommand::GoBack, GLFW_KEY_ESCAPE},
-        {InputCommand::Confirm, GLFW_KEY_ENTER},
+        {InputCommand::MoveLeft, SDL_SCANCODE_LEFT},
+        {InputCommand::MoveRight, SDL_SCANCODE_RIGHT},
+        {InputCommand::RotateLeft, SDL_SCANCODE_Z},
+        {InputCommand::RotateRight, SDL_SCANCODE_X},
+        {InputCommand::RotateRightAlt, SDL_SCANCODE_UP},
+        {InputCommand::MoveUp, SDL_SCANCODE_UP},
+        {InputCommand::MoveDown, SDL_SCANCODE_DOWN},
+        {InputCommand::OpenMenu, SDL_SCANCODE_ESCAPE},
+        {InputCommand::GoBack, SDL_SCANCODE_ESCAPE},
+        {InputCommand::Confirm, SDL_SCANCODE_RETURN},
     };
 
     _gamepadBindings = {
-        {InputCommand::MoveLeft, GLFW_GAMEPAD_BUTTON_DPAD_LEFT},
-        {InputCommand::MoveRight, GLFW_GAMEPAD_BUTTON_DPAD_RIGHT},
-        {InputCommand::RotateLeft, GLFW_GAMEPAD_BUTTON_SQUARE},
-        {InputCommand::RotateRight, GLFW_GAMEPAD_BUTTON_CROSS},
-        {InputCommand::MoveUp, GLFW_GAMEPAD_BUTTON_DPAD_UP},
-        {InputCommand::MoveDown, GLFW_GAMEPAD_BUTTON_DPAD_DOWN},
-        {InputCommand::OpenMenu, GLFW_GAMEPAD_BUTTON_START},
-        {InputCommand::GoBack, GLFW_GAMEPAD_BUTTON_CIRCLE},
-        {InputCommand::Confirm, GLFW_GAMEPAD_BUTTON_CROSS},
+        {InputCommand::MoveLeft, SDL_CONTROLLER_BUTTON_DPAD_LEFT},
+        {InputCommand::MoveRight, SDL_CONTROLLER_BUTTON_DPAD_RIGHT},
+        {InputCommand::RotateLeft, SDL_CONTROLLER_BUTTON_X},
+        {InputCommand::RotateRight, SDL_CONTROLLER_BUTTON_A},
+        {InputCommand::MoveUp, SDL_CONTROLLER_BUTTON_DPAD_UP},
+        {InputCommand::MoveDown, SDL_CONTROLLER_BUTTON_DPAD_DOWN},
+        {InputCommand::OpenMenu, SDL_CONTROLLER_BUTTON_START},
+        {InputCommand::GoBack, SDL_CONTROLLER_BUTTON_B},
+        {InputCommand::Confirm, SDL_CONTROLLER_BUTTON_A},
     };
 
     // assume the keyboard and gamepad keys are different
@@ -86,14 +88,14 @@ void Keyboard::advance(fseconds dt) {
     }
     for (auto& [command, state] : _stateSpecificKeyStates[_currentState]) {
         auto [prevState, curState] = readCommandState(command);
-        if (curState == GLFW_PRESS && prevState == GLFW_RELEASE) {
+        if (curState == KeyState::Press && prevState == KeyState::Release) {
             invokeHandler(command, _stateDownHandlers[_currentState]);
             invokeHandler(command, _stateRepeatHandlers[_currentState]);
             _activeRepeats[command] = true;
             state.elapsed = fseconds();
         }
-        if (curState == GLFW_PRESS &&
-            prevState == GLFW_PRESS &&
+        if (curState == KeyState::Press &&
+            prevState == KeyState::Press &&
             state.elapsed > state.repeat &&
             _activeRepeats[command])
         {
@@ -127,7 +129,7 @@ void Keyboard::onAdvance(OnAdvanceHandler handler) {
 
 void Keyboard::stopRepeats(InputCommand command) {
     auto [_, state] = readCommandState(command);
-    if (state == GLFW_PRESS) {
+    if (state == KeyState::Press) {
         _activeRepeats[command] = false;
     }
 }
@@ -140,6 +142,14 @@ const std::string& Keyboard::inputDeviceName() const {
     return _inputDeviceName;
 }
 
+const StateArray& Keyboard::keys() const {
+    return _keyboard;
+}
+
+void Keyboard::rumble(float strength, fseconds duration) {
+    _gamepad.rumble(strength, duration);
+}
+
 std::string strState(State state) {
     switch (state) {
     case State::Game: return "Game";
@@ -148,4 +158,84 @@ std::string strState(State state) {
     case State::NameInput: return "NameInput";
     default: assert(false); return "";
     }
+}
+
+StateArray::StateArray(int size, const Uint8* state)
+    : _size(size), _state(reinterpret_cast<const KeyState*>(state)) {}
+
+KeyState StateArray::at(int i) const {
+    assert(i < _size);
+    return _state[i];
+}
+
+GameController::GameController(SDL_GameController* handle, int index)
+    : _handle(handle), _index(index) {
+    _haptic = SDL_HapticOpen(_index);
+    if (_haptic) {
+        SDL_HapticRumbleInit(_haptic);
+    }
+}
+
+GameController::GameController(GameController&& other) {
+    *this = std::move(other);
+}
+
+GameController& GameController::operator=(GameController&& other) {
+    _handle = other._handle;
+    _haptic = other._haptic;
+    _name = other._name;
+    _index = other._index;
+
+    other._handle = nullptr;
+    other._haptic = nullptr;
+
+    return *this;
+}
+
+GameController GameController::GetFirstAvailable() {
+    for (int i = 0; i < SDL_NumJoysticks(); ++i) {
+        if (SDL_IsGameController(i)) {
+            auto handle = SDL_GameControllerOpen(i);
+            if (handle) {
+                return GameController(handle, i);
+            }
+        }
+    }
+    return GameController(nullptr, 0);
+}
+
+GameController::~GameController() {
+    if (_handle) {
+        SDL_GameControllerClose(_handle);
+    }
+    if (_haptic) {
+        SDL_HapticClose(_haptic);
+    }
+}
+
+bool GameController::isOpen() const {
+    return _handle;
+}
+
+bool GameController::isConnected() const {
+    return SDL_GameControllerGetAttached(_handle);
+}
+
+std::string GameController::name() const {
+    if (_name.empty()) {
+        _name = SDL_GameControllerName(_handle);
+    }
+    return _name;
+}
+
+KeyState GameController::button(SDL_GameControllerButton code) const {
+    assert(code < SDL_CONTROLLER_BUTTON_MAX);
+    if (!isOpen())
+        return KeyState::Release;
+    return static_cast<KeyState>(SDL_GameControllerGetButton(_handle, code));
+}
+
+void GameController::rumble(float strength, fseconds duration) {
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+    SDL_HapticRumblePlay(_haptic, strength, ms);
 }

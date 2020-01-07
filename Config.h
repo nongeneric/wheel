@@ -25,6 +25,7 @@ struct HighscoreRecord {
     X(OptionsMenu_Resolution) \
     X(OptionsMenu_Fullscreen) \
     X(OptionsMenu_InitialLevel) \
+    X(OptionsMenu_Rumble) \
     X(HUD_Lines) \
     X(HUD_Score) \
     X(HUD_InputDevice) \
@@ -53,6 +54,7 @@ struct TetrisConfig {
     unsigned screenHeight;
     bool showFps;
     unsigned initialLevel;
+    bool rumble;
     std::string language;
     std::vector<HighscoreRecord> highscoreLines;
     std::vector<HighscoreRecord> highscoreScore;

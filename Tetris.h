@@ -40,7 +40,7 @@ public:
     void moveRight();
     void moveLeft();
     void rotate(bool clockwise);
-    void collect();
+    int collect();
     void reset();
     TetrisStatistics getStats() const;
     ~Tetris();

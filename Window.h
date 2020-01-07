@@ -1,7 +1,8 @@
 #pragma once
 
 #include <GL/glew.h>
-#include <GLFW/glfw3.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_opengl.h>
 #include <string>
 #include <vector>
 
@@ -9,14 +10,14 @@
 #include <glm/glm.hpp>
 
 class Window {
-    GLFWwindow* _window;
+    SDL_Window* _window;
 public:
     Window(std::string title, bool fullscreen, unsigned width, unsigned height, std::string monitor);
+    ~Window();
     void swap();
     bool shouldClose();
-    glm::vec2 getCursorPos();
     glm::vec2 getFramebufferSize();
-    GLFWwindow* handle() const;
+    void* handle() const;
 };
 
 struct MonitorMode {
@@ -26,7 +27,10 @@ struct MonitorMode {
 };
 
 struct Monitor {
+    int id;
     std::string name;
+    int currentWidth;
+    int currentHeight;
     std::vector<MonitorMode> modes;
 };
 

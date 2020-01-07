@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost COMPONENTS system filesystem thread chrono REQUIRED)
+find_package(Boost COMPONENTS system filesystem thread REQUIRED)
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
 
@@ -101,8 +101,10 @@ set(SRC_LIST
 
 if(WIN32)
     set(LIB_DEPS
-        glfw3dll
         glew32
+        mingw32
+        SDL2main
+        SDL2
         opengl32
         z
     )
@@ -110,13 +112,13 @@ else()
     set(LIB_DEPS
         GLEW
         GL
+        SDL2
         X11
         Xxf86vm
         Xrandr
         Xi
         pthread
         bz2
-        glfw
     )
 endif()
 

@@ -33,7 +33,7 @@
 #define GLM_FORCE_CXX11
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <boost/chrono.hpp>
+#include <chrono>
 #include <boost/lexical_cast.hpp>
 
 #include "rstd.h"
@@ -48,7 +48,7 @@
 #include <array>
 #include <iostream>
 
-namespace chrono = boost::chrono;
+namespace chrono = std::chrono;
 
 const int g_TetrisHor = 10;
 const int g_TetrisVert = 20;
@@ -67,16 +67,16 @@ class MeshWrapper {
     template <typename T>
     struct model : concept {
         model(T m) : data_(std::move(m)) { }
-        virtual concept* copy_() override {
+        concept* copy_() override {
             return new model(*this);
         }
-        virtual void draw_(int mv_location, int mvp_location, glm::mat4 vp, Program& program) override {
+        void draw_(int mv_location, int mvp_location, glm::mat4 vp, Program& program) override {
             ::draw(data_, mv_location, mvp_location, vp, program);
         }
-        virtual void setPos_(glm::vec3 pos) {
+        void setPos_(glm::vec3 pos) override {
             ::setPos(data_, pos);
         }
-        virtual void animate_(fseconds dt) {
+        void animate_(fseconds dt) override {
             ::animate(data_, dt);
         }
         T data_;
@@ -261,6 +261,7 @@ MainMenuStructure initMainMenu(Menu& menu, Text& text, TetrisConfig& config) {
 struct OptionsMenuStructure {
     MenuLeaf* back;
     MenuLeaf* initialSpeed;
+    MenuLeaf* rumble;
     MenuLeaf* monitor;
     MenuLeaf* fullscreen;
     MenuLeaf* resolution;    
@@ -322,6 +323,7 @@ OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig& config, Text& tex
     std::string strYes = config.string(StringID::Menu_Yes);
     std::string strNo = config.string(StringID::Menu_No);
     (res.initialSpeed = new MenuLeaf(&text, genNumbers(20), config.string(StringID::OptionsMenu_InitialLevel), 0.05f))->setValue(vformat("%d", speed));
+    (res.rumble = new MenuLeaf(&text, {strYes, strNo}, config.string(StringID::OptionsMenu_Rumble), 0.05f))->setValue(config.rumble ? strYes : strNo);
     (res.fullscreen = new MenuLeaf(&text, {strYes, strNo}, config.string(StringID::OptionsMenu_Fullscreen), 0.05f))->setValue(config.fullScreen ? strYes : strNo);
     auto monitorNames = getMonitorNames();
     std::string monitor = monitorNames.front();
@@ -332,6 +334,7 @@ OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig& config, Text& tex
     menu.addLeaf(res.back);
     menu.addLeaf(res.monitor);
     menu.addLeaf(res.initialSpeed);
+    menu.addLeaf(res.rumble);
     menu.addLeaf(res.fullscreen);
     menu.addLeaf(res.resolution);
     return res;
@@ -716,6 +719,11 @@ int desktop_main() {
         exit = true;
     });
     menu.onValueChanged(optionsMenuStructure.back, [&]() { menu.back(); });
+    menu.onValueChanged(optionsMenuStructure.rumble, [&]() {
+        bool newValue = optionsMenuStructure.rumble->value() ==
+                config.string(StringID::Menu_Yes);
+        config.rumble = newValue;
+    });
     menu.onValueChanged(optionsMenuStructure.fullscreen, [&]() {
         bool newValue = optionsMenuStructure.fullscreen->value() ==
                 config.string(StringID::Menu_Yes);
@@ -746,6 +754,12 @@ int desktop_main() {
     menu.onValueChanged(optionsMenuStructure.resolution, onResolutionChanged);
 
     config.monitor = optionsMenuStructure.monitor->value();
+
+    auto rumble = [&](float strength, fseconds duration) {
+        if (config.rumble) {
+            keys.rumble(strength, duration);
+        }
+    };
 
     // define these here so that the closure below doesn't capture
     // dead stack variables
@@ -817,7 +831,10 @@ int desktop_main() {
                              fseconds(1.0f) - levelPenalty);
             copyState(tetris, &Tetris::getNextPieceState, 4, 4, meshes[nextPieceTrunk].obj<Trunk>(), fseconds());
         }
-        tetris.collect();
+        auto lines = tetris.collect();
+        if (lines > 0) {
+            rumble(0.2 * lines, fseconds(0.2));
+        }
 
         BindLock<Program> programLock(program.program);
         program.program.setUniform(program.U_GSAMPLER, 0);
@@ -830,6 +847,8 @@ int desktop_main() {
 
         auto stats = tetris.getStats();
         if (stats.gameOver) {
+            rumble(1, fseconds(0.8));
+
             HighscoreRecord newRecord { "", stats.lines, stats.score, config.initialLevel };
             newLinesHighscore = updateHighscores(newRecord, config.highscoreLines, true);
             newScoreHighscore = updateHighscores(newRecord, config.highscoreScore, false);
@@ -868,7 +887,7 @@ int desktop_main() {
     return 0;
 }
 
-int main() {
+int main(int, char*[]) {
     try {
         return desktop_main();
     } catch (std::exception& e) {

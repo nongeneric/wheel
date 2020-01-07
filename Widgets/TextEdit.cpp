@@ -5,27 +5,27 @@
 #include <cctype>
 #include <map>
 
-const int printableKeys[] = {
-    GLFW_KEY_SPACE, GLFW_KEY_APOSTROPHE, GLFW_KEY_COMMA, GLFW_KEY_MINUS, GLFW_KEY_PERIOD, GLFW_KEY_SLASH,
-    GLFW_KEY_0, GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4, GLFW_KEY_5, GLFW_KEY_6, GLFW_KEY_7,
-    GLFW_KEY_8, GLFW_KEY_9, GLFW_KEY_SEMICOLON, GLFW_KEY_EQUAL, GLFW_KEY_A, GLFW_KEY_B, GLFW_KEY_C,
-    GLFW_KEY_D, GLFW_KEY_E, GLFW_KEY_F, GLFW_KEY_G, GLFW_KEY_H, GLFW_KEY_I, GLFW_KEY_J, GLFW_KEY_K,
-    GLFW_KEY_L, GLFW_KEY_M, GLFW_KEY_N, GLFW_KEY_O, GLFW_KEY_P, GLFW_KEY_Q, GLFW_KEY_R, GLFW_KEY_S,
-    GLFW_KEY_T, GLFW_KEY_U, GLFW_KEY_V, GLFW_KEY_W, GLFW_KEY_X, GLFW_KEY_Y, GLFW_KEY_Z,
-    GLFW_KEY_LEFT_BRACKET, GLFW_KEY_BACKSLASH, GLFW_KEY_RIGHT_BRACKET, GLFW_KEY_GRAVE_ACCENT
+const SDL_Scancode printableKeys[] = {
+    SDL_SCANCODE_SPACE, SDL_SCANCODE_APOSTROPHE, SDL_SCANCODE_COMMA, SDL_SCANCODE_MINUS, SDL_SCANCODE_PERIOD, SDL_SCANCODE_SLASH,
+    SDL_SCANCODE_0, SDL_SCANCODE_1, SDL_SCANCODE_2, SDL_SCANCODE_3, SDL_SCANCODE_4, SDL_SCANCODE_5, SDL_SCANCODE_6, SDL_SCANCODE_7,
+    SDL_SCANCODE_8, SDL_SCANCODE_9, SDL_SCANCODE_SEMICOLON, SDL_SCANCODE_EQUALS, SDL_SCANCODE_A, SDL_SCANCODE_B, SDL_SCANCODE_C,
+    SDL_SCANCODE_D, SDL_SCANCODE_E, SDL_SCANCODE_F, SDL_SCANCODE_G, SDL_SCANCODE_H, SDL_SCANCODE_I, SDL_SCANCODE_J, SDL_SCANCODE_K,
+    SDL_SCANCODE_L, SDL_SCANCODE_M, SDL_SCANCODE_N, SDL_SCANCODE_O, SDL_SCANCODE_P, SDL_SCANCODE_Q, SDL_SCANCODE_R, SDL_SCANCODE_S,
+    SDL_SCANCODE_T, SDL_SCANCODE_U, SDL_SCANCODE_V, SDL_SCANCODE_W, SDL_SCANCODE_X, SDL_SCANCODE_Y, SDL_SCANCODE_Z,
+    SDL_SCANCODE_BACKSLASH, SDL_SCANCODE_GRAVE
 };
 
 const std::map<int, char> toUpperMap = {
-    { GLFW_KEY_1, '!' },
-    { GLFW_KEY_2, '@' },
-    { GLFW_KEY_3, '#' },
-    { GLFW_KEY_4, '$' },
-    { GLFW_KEY_5, '%' },
-    { GLFW_KEY_6, '^' },
-    { GLFW_KEY_7, '&' },
-    { GLFW_KEY_8, '*' },
-    { GLFW_KEY_9, '(' },
-    { GLFW_KEY_0, ')' },
+    { SDLK_1, '!' },
+    { SDLK_2, '@' },
+    { SDLK_3, '#' },
+    { SDLK_4, '$' },
+    { SDLK_5, '%' },
+    { SDLK_6, '^' },
+    { SDLK_7, '&' },
+    { SDLK_8, '*' },
+    { SDLK_9, '(' },
+    { SDLK_0, ')' },
 };
 
 char withShift(int key) {
@@ -33,38 +33,40 @@ char withShift(int key) {
     if (it != end(toUpperMap)) {
         return (char)it->second;
     }
-    return (char)key;
+    return std::toupper(key);
 }
 
 TextEdit::TextEdit(Keyboard* keyboard, Text* text)
     : _keys(keyboard), _line(text, 0.06f), _cursor(0), _shown(false)
 {
     _keys->onAdvance([=] (auto window, auto state) {
+        (void)window;
         if (state != State::NameInput)
             return;
 
-        for (unsigned key : printableKeys) {
-            auto keyState = glfwGetKey(window->handle(), key);
-            if (keyState == GLFW_PRESS && _keyStates[key].prev == GLFW_RELEASE) {
+        for (auto key : printableKeys) {
+            auto keyState = keyboard->keys().at(key);
+            if (keyState == KeyState::Press && _keyStates[key].prev == KeyState::Release) {
                 if (_text.size() > 11)
                     return;
                 auto isShiftPressed =
-                    glfwGetKey(window->handle(), GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
-                    glfwGetKey(window->handle(), GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
-                _text += isShiftPressed ? withShift(key) : (char)std::tolower(key);
+                    keyboard->keys().at(SDL_SCANCODE_LSHIFT) == KeyState::Press ||
+                    keyboard->keys().at(SDL_SCANCODE_RSHIFT) == KeyState::Press;
+                auto code = SDL_GetKeyFromScancode(key);
+                _text += isShiftPressed ? withShift(code) : code;
                 _cursor++;
             }
             _keyStates[key].prev = keyState;
         }
 
-        auto keyState = glfwGetKey(window->handle(), GLFW_KEY_BACKSPACE);
-        if (keyState == GLFW_PRESS && _keyStates[GLFW_KEY_BACKSPACE].prev == GLFW_RELEASE) {
+        auto keyState = keyboard->keys().at(SDL_SCANCODE_BACKSPACE);
+        if (keyState == KeyState::Press && _keyStates[SDL_SCANCODE_BACKSPACE].prev == KeyState::Release) {
             if (!_shown || _text.empty() || _cursor == 0)
                 return;
             _text = _text.substr(0, _cursor - 1) + _text.substr(_cursor);;
             _cursor = std::max(0, _cursor - 1);
         }
-        _keyStates[GLFW_KEY_BACKSPACE].prev = keyState;
+        _keyStates[SDL_SCANCODE_BACKSPACE].prev = keyState;
     });
 }
 
