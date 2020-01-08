@@ -2,10 +2,8 @@
 
 #include <glm/glm.hpp>
 #include <GL/glew.h>
-#include <chrono>
+#include "Time.h"
 #include <functional>
-
-using fseconds = std::chrono::duration<float>;
 
 class Mesh;
 class ScaleAnimation {

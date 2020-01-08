@@ -3,9 +3,7 @@
 #include <map>
 #include <stack>
 #include <functional>
-#include <chrono>
-
-using fseconds = std::chrono::duration<float>;
+#include "Time.h"
 
 class Keyboard;
 class Menu;

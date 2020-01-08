@@ -1,7 +1,6 @@
 #pragma once
 
 #include <GL/glew.h>
-#define GLM_FORCE_CXX11
 #include <glm/glm.hpp>
 
 #include <vector>

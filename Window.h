@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-#define GLM_FORCE_CXX11
 #include <glm/glm.hpp>
 
 class Window {

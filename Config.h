@@ -9,7 +9,7 @@ struct HighscoreRecord {
     unsigned lines;
     unsigned score;
     unsigned initialLevel;
-    bool operator==(HighscoreRecord const&);    
+    bool operator==(HighscoreRecord const&);
 };
 
 #define STRING_ID_LIST \
@@ -46,7 +46,7 @@ enum class StringID {
 };
 #undef X
 
-struct TetrisConfig {    
+struct TetrisConfig {
     bool orthographic;
     bool fullScreen;
     std::string monitor;
@@ -55,6 +55,7 @@ struct TetrisConfig {
     bool showFps;
     unsigned initialLevel;
     bool rumble;
+    int fpsCap;
     std::string language;
     std::vector<HighscoreRecord> highscoreLines;
     std::vector<HighscoreRecord> highscoreScore;

@@ -1,7 +1,5 @@
 #pragma once
 
-#define GLM_FORCE_CXX11
-
 #include "BindLock.h"
 #include <glm/glm.hpp>
 #include <GL/glew.h>

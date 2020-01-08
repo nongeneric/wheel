@@ -49,13 +49,10 @@ Window::Window(std::string title, bool fullscreen, unsigned width, unsigned heig
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
     auto xPos = SDL_WINDOWPOS_CENTERED, yPos = SDL_WINDOWPOS_CENTERED;
-
     int flags = SDL_WINDOW_OPENGL;
     if (fullscreen) {
-        flags |= SDL_WINDOW_BORDERLESS | SDL_WINDOW_FULLSCREEN;
+        flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
         auto monitorInfo = findMonitor(monitor);
-        xPos = SDL_WINDOWPOS_CENTERED_DISPLAY(monitorInfo.id);
-        yPos = SDL_WINDOWPOS_CENTERED_DISPLAY(monitorInfo.id);
         width = monitorInfo.currentWidth;
         height = monitorInfo.currentHeight;
     } else {

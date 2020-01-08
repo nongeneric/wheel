@@ -3,10 +3,8 @@
 #include "Window.h"
 #include <map>
 #include <tuple>
-#include <chrono>
+#include "Time.h"
 #include <functional>
-
-using fseconds = std::chrono::duration<float>;
 
 enum class State {
     Game,

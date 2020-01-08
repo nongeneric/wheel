@@ -4,11 +4,9 @@
 #include "Texture.h"
 #include "Mesh.h"
 #include <glm/glm.hpp>
-#include <chrono>
+#include "Time.h"
 #include <vector>
 #include <functional>
-
-using fseconds = std::chrono::duration<float>;
 
 struct TrunkCube {
     Mesh mesh;

@@ -1,10 +1,7 @@
 #pragma once
 
-#include <chrono>
+#include "Time.h"
 
-using fseconds = std::chrono::duration<float>;
-
-#define GLM_FORCE_CXX11
 #include <glm/glm.hpp>
 
 struct IWidget {

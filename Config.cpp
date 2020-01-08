@@ -50,6 +50,7 @@ void TetrisConfig::load() {
     initialLevel = pt.get("tetris.<xmlattr>.initialLevel", 0);
     rumble = pt.get("tetris.<xmlattr>.rumble", true);
     language = pt.get("tetris.<xmlattr>.language", "en");
+    fpsCap = pt.get("tetris.<xmlattr>.fpsCap", 300);
     readHighscores(highscoreLines, "tetris.lineHighscores", pt);
     readHighscores(highscoreScore, "tetris.scoreHighscores", pt);
     loadStrings();
@@ -66,6 +67,7 @@ void TetrisConfig::save() {
     pt.put("tetris.<xmlattr>.initialLevel", initialLevel);
     pt.put("tetris.<xmlattr>.rumble", rumble);
     pt.put("tetris.<xmlattr>.language", language);
+    pt.put("tetris.<xmlattr>.fpsCap", fpsCap);
     writeHighscores(highscoreLines, "tetris.lineHighscores.highscore", pt);
     writeHighscores(highscoreScore, "tetris.scoreHighscores.highscore", pt);
     boost::property_tree::xml_writer_settings<std::string> settings('\t', 1);

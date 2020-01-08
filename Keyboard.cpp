@@ -236,6 +236,6 @@ KeyState GameController::button(SDL_GameControllerButton code) const {
 }
 
 void GameController::rumble(float strength, fseconds duration) {
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+    auto ms = chrono::duration_cast<chrono::milliseconds>(duration).count();
     SDL_HapticRumblePlay(_haptic, strength, ms);
 }

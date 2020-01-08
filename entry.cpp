@@ -30,10 +30,9 @@
 
 #include <cstring>
 
-#define GLM_FORCE_CXX11
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <chrono>
+#include "Time.h"
 #include <boost/lexical_cast.hpp>
 
 #include "rstd.h"
@@ -47,8 +46,7 @@
 #include <stack>
 #include <array>
 #include <iostream>
-
-namespace chrono = std::chrono;
+#include <thread>
 
 const int g_TetrisHor = 10;
 const int g_TetrisVert = 20;
@@ -566,6 +564,35 @@ public:
     }
 };
 
+class FpsLimiter {
+    using clock = chrono::steady_clock;
+
+    clock::time_point _start{};
+    clock::time_point _swap{};
+    clock::duration _target{};
+    clock::duration _swapDuration{};
+
+public:
+    FpsLimiter(int cap) {
+        _target = chrono::duration_cast<clock::duration>(fseconds(1.f / cap));
+    }
+
+    void startFrame() {
+        _start = chrono::high_resolution_clock::now();
+        if (_swap != clock::time_point()) {
+            _swapDuration = _start - _swap;
+        }
+    }
+
+    void wait() {
+        auto elapsed = chrono::high_resolution_clock::now() - _start;
+        if (elapsed < _target - _swapDuration) {
+            spinSleep(_target - _swapDuration - elapsed);
+        }
+        _swap = chrono::high_resolution_clock::now();
+    }
+};
+
 int desktop_main() {
     TetrisConfig config;
     if (!loadConfig(config)) {
@@ -598,7 +625,6 @@ int desktop_main() {
 
     Painter2D p2d;
     p2d.rect(glm::vec2 { 0, 0 }, glm::vec2 { 1.0f, 1.0f }, glm::vec4 {0, 0, 0, 0.7});
-    //p2d.rect(glm::vec2 { 0, 0.45f }, glm::vec2 { 0.3f, 0.1f }, glm::vec4 {0.5, 0.5, 0.5, 0.5});
 
     Menu mainMenu(&text), optionsMenu(&text);
     WindowLayout mainMenuLayout(&mainMenu, true);
@@ -620,6 +646,12 @@ int desktop_main() {
     MenuController menu(&mainMenu, &keys);
 
     StateManager stateManager(&pm, &menu, &hscreen, &gameOverScreen, &keys);
+
+    auto rumble = [&](float strength, fseconds duration) {
+        if (config.rumble) {
+            keys.rumble(strength, duration);
+        }
+    };
 
     FpsCounter fps;
     bool canManuallyMove;
@@ -687,6 +719,9 @@ int desktop_main() {
         bool newValue = optionsMenuStructure.rumble->value() ==
                 config.string(StringID::Menu_Yes);
         config.rumble = newValue;
+        if (newValue) {
+            rumble(1, fseconds(0.2));
+        }
     });
     menu.onValueChanged(optionsMenuStructure.fullscreen, [&]() {
         bool newValue = optionsMenuStructure.fullscreen->value() ==
@@ -711,11 +746,7 @@ int desktop_main() {
 
     config.monitor = optionsMenuStructure.monitor->value();
 
-    auto rumble = [&](float strength, fseconds duration) {
-        if (config.rumble) {
-            keys.rumble(strength, duration);
-        }
-    };
+    FpsLimiter fpsLimiter(config.fpsCap);
 
     // define these here so that the closure below doesn't capture
     // dead stack variables
@@ -723,6 +754,8 @@ int desktop_main() {
     int newScoreHighscore;
 
     while (!window.shouldClose()) {
+        fpsLimiter.startFrame();
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         hudList.setLine(0, vformat(config.string(StringID::HUD_Lines), tetris.getStats().lines));
@@ -834,6 +867,7 @@ int desktop_main() {
 
         glEnable(GL_DEPTH_TEST);
 
+        fpsLimiter.wait();
         window.swap();
 
         if (exit)

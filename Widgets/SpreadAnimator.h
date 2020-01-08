@@ -1,12 +1,9 @@
 #pragma once
 
-#define GLM_FORCE_CXX11
 #include <glm/glm.hpp>
 
-#include <chrono>
+#include "Time.h"
 #include <vector>
-
-using fseconds = std::chrono::duration<float>;
 
 class ISpreadAnimationLine {
 public:

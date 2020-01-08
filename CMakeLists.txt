@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost COMPONENTS system filesystem thread REQUIRED)
+find_package(Boost COMPONENTS system filesystem thread chrono REQUIRED)
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
 
@@ -40,6 +40,7 @@ file(COPY lang.en.xml DESTINATION .)
 file(COPY lang.ru.xml DESTINATION .)
 
 add_definitions(-DGLM_FORCE_CTOR_INIT)
+add_definitions(-DGLM_FORCE_CXX11)
 
 set(SRC_LIST
     Camera.h
@@ -84,6 +85,8 @@ set(SRC_LIST
     Bitmap.cpp
     Tetris.h
     Tetris.cpp
+    Time.h
+    Time.cpp
     Program.h
     Program.cpp
     Window.h
