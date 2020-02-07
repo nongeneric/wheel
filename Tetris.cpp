@@ -5,7 +5,9 @@
 #include <vector>
 
 struct BBox {
-    int x, y, size;
+    int x = 0;
+    int y = 0;
+    int size = 0;
 };
 
 using Line = std::vector<CellInfo>;
@@ -371,9 +373,11 @@ public:
             _bbPiece.x += offset;
         }
     }
+
     TetrisStatistics getStats() {
         return _stats;
     }
+
     CellInfo getNextPieceState(int x, int y) {
         State state = createState(4, 4, CellState::Hidden);
         assert((unsigned)_nextPiece < PieceType::count);
@@ -382,6 +386,11 @@ public:
         assert((unsigned)state.at(y).at(x).piece < PieceType::count);
         return state.at(y).at(x);
     }
+
+    void resetGameOver() {
+        _stats.gameOver = false;
+    }
+
     void reset() {
         _nothingFalling = true;
         _nextPiece = _generator();
@@ -392,6 +401,7 @@ public:
         _dynamicGrid = createState(_hor, _vert, CellState::Hidden);
         _stats = TetrisStatistics();
     }
+
     void setInitialLevel(int level) {
         _initialLevel = level;
     }
@@ -431,6 +441,10 @@ void Tetris::rotate(bool clockwise) {
 
 int Tetris::collect() {
     return _impl->collect();
+}
+
+void Tetris::resetGameOver() {
+    _impl->resetGameOver();
 }
 
 void Tetris::reset() {

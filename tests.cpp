@@ -210,6 +210,12 @@ TEST(TetrisTests, Simple1) {
     }));
 }
 
+TEST(TetrisTests, Rotate) {
+    Tetris t(TEST_DIMH, TEST_DIMV, []() { return PieceType::O; });
+    t.rotate(true); // no piece is yet visible
+    t.moveLeft();
+    t.moveRight();
+}
 
 TEST(HighscoresTest, Simple1) {
     std::vector<HighscoreRecord> records;

@@ -1,29 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <strings>
-	<string id="MainMenu_Resume" value="Resume"/>
-	<string id="MainMenu_Restart" value="Restart"/>
-	<string id="MainMenu_Options" value="Options"/>
-	<string id="MainMenu_HallOfFame" value="Hall of Fame"/>
-	<string id="MainMenu_Exit" value="Exit"/>
-	<string id="OptionsMenu_Back" value="Back"/>
-	<string id="OptionsMenu_Resolution" value="Resolution"/>
-	<string id="OptionsMenu_Fullscreen" value="Fullscreen"/>
-	<string id="OptionsMenu_InitialLevel" value="Initial Level"/>
-	<string id="OptionsMenu_Rumble" value="Rumble"/>
-	<string id="OptionsMenu_Monitor" value="Monitor"/>
-	<string id="Menu_Yes" value="Yes"/>
-	<string id="Menu_No" value="No"/>
-	<string id="HUD_Lines" value="Lines: %d"/>
-	<string id="HUD_Score" value="Score: %d"/>
-	<string id="HUD_InputDevice" value="Device: %d"/>
-	<string id="HUD_Level" value="Level: %d"/>
-	<string id="HUD_FPS" value="FPS: %d"/>
-	<string id="GameOverScreen_NewHighscore" value="New Highscore!"/>
-	<string id="GameOverScreen_GameOver" value="Game Over!"/>
-	<string id="GameOverScreen_PressEnter" value="Press [ENTER] to continue"/>
-	<string id="GameOverScreen_EnterYourName" value="Enter your name:"/>
-	<string id="HallOfFame_Name" value="Name"/>
-	<string id="HallOfFame_Lines" value="Lines"/>
-	<string id="HallOfFame_Score" value="Score"/>
-	<string id="HallOfFame_Level" value="Level"/>
+    <string id="MainMenu_Resume" value="Resume"/>
+    <string id="MainMenu_Restart" value="Restart"/>
+    <string id="MainMenu_Options" value="Options"/>
+    <string id="MainMenu_HallOfFame" value="Hall of Fame"/>
+    <string id="MainMenu_Exit" value="Exit"/>
+    <string id="OptionsMenu_Back" value="Back"/>
+    <string id="OptionsMenu_Resolution" value="Resolution"/>
+    <string id="OptionsMenu_DisplayMode" value="Display Mode"/>
+    <string id="OptionsMenu_DisplayMode_Fullscreen" value="Fullscreen"/>
+    <string id="OptionsMenu_DisplayMode_Windowed" value="Windowed"/>
+    <string id="OptionsMenu_DisplayMode_Borderless" value="Borderless"/>
+    <string id="OptionsMenu_InitialLevel" value="Initial Level"/>
+    <string id="OptionsMenu_Rumble" value="Rumble"/>
+    <string id="OptionsMenu_Monitor" value="Monitor"/>
+    <string id="Menu_Yes" value="Yes"/>
+    <string id="Menu_No" value="No"/>
+    <string id="HUD_Lines" value="Lines: %d"/>
+    <string id="HUD_Score" value="Score: %d"/>
+    <string id="HUD_InputDevice" value="Device: %d"/>
+    <string id="HUD_Level" value="Level: %d"/>
+    <string id="HUD_FPS" value="FPS: %d"/>
+    <string id="GameOverScreen_NewHighscore" value="New Highscore!"/>
+    <string id="GameOverScreen_GameOver" value="Game Over!"/>
+    <string id="GameOverScreen_PressEnter" value="Press [ENTER] to continue"/>
+    <string id="GameOverScreen_EnterYourName" value="Enter your name:"/>
+    <string id="HallOfFame_Name" value="Name"/>
+    <string id="HallOfFame_Lines" value="Lines"/>
+    <string id="HallOfFame_Score" value="Score"/>
+    <string id="HallOfFame_Level" value="Level"/>
 </strings>

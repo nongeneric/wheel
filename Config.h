@@ -23,7 +23,10 @@ struct HighscoreRecord {
     X(OptionsMenu_Back) \
     X(OptionsMenu_Monitor) \
     X(OptionsMenu_Resolution) \
-    X(OptionsMenu_Fullscreen) \
+    X(OptionsMenu_DisplayMode) \
+    X(OptionsMenu_DisplayMode_Fullscreen) \
+    X(OptionsMenu_DisplayMode_Windowed) \
+    X(OptionsMenu_DisplayMode_Borderless) \
     X(OptionsMenu_InitialLevel) \
     X(OptionsMenu_Rumble) \
     X(HUD_Lines) \
@@ -46,10 +49,16 @@ enum class StringID {
 };
 #undef X
 
+enum class DisplayMode {
+    Fullscreen,
+    Windowed,
+    Borderless
+};
+
 struct TetrisConfig {
     bool orthographic;
-    bool fullScreen;
-    std::string monitor;
+    DisplayMode displayMode;
+    unsigned monitor;
     unsigned screenWidth;
     unsigned screenHeight;
     bool showFps;
@@ -66,3 +75,5 @@ private:
     void loadStrings();
     std::map<StringID, std::string> _strings;
 };
+
+std::string printDisplayMode(DisplayMode mode);

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.11)
 project(wheel)
 
-set(wheel_VERSION "0.1.1")
+set(wheel_VERSION "0.1.2")
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -13,9 +13,9 @@ link_directories(${Boost_LIBRARY_DIRS})
 
 if(DEFINED CMAKE_RELEASE)
     set(CMAKE_CXX_FLAGS "-O2 ${CMAKE_CXX_FLAGS}")
-        if(WIN32)
-                set(CMAKE_CXX_FLAGS "-Wl,--subsystem,windows ${CMAKE_CXX_FLAGS}")
-        endif()
+    if(WIN32)
+        set(CMAKE_CXX_FLAGS "-Wl,--subsystem,windows ${CMAKE_CXX_FLAGS}")
+    endif()
 else()
     add_definitions(-DDEBUG)
     set(CMAKE_CXX_FLAGS "-ggdb -O0 ${CMAKE_CXX_FLAGS}")

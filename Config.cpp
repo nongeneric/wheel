@@ -38,12 +38,31 @@ std::string TetrisConfig::string(StringID id) {
     throw std::runtime_error("no string present");
 }
 
+DisplayMode parseDisplayMode(const std::string& value) {
+    if (value == "fullscreen")
+        return DisplayMode::Fullscreen;
+    if (value == "windowed")
+        return DisplayMode::Windowed;
+    if (value == "borderless")
+        return DisplayMode::Borderless;
+    return DisplayMode::Windowed;
+}
+
+std::string printDisplayMode(DisplayMode mode) {
+    switch (mode) {
+    case DisplayMode::Fullscreen: return "fullscreen";
+    case DisplayMode::Windowed: return "windowed";
+    case DisplayMode::Borderless: return "borderless";
+    }
+    return "";
+}
+
 void TetrisConfig::load() {
     ptree pt;
     read_xml(configName, pt);
     orthographic = pt.get("tetris.<xmlattr>.orthographic", true);
-    fullScreen = pt.get("tetris.<xmlattr>.fullscreen", false);
-    monitor = pt.get("tetris.<xmlattr>.monitor", std::string());
+    displayMode = parseDisplayMode(pt.get("tetris.<xmlattr>.displayMode", std::string()));
+    monitor = pt.get("tetris.<xmlattr>.monitor", 0);
     screenWidth = pt.get("tetris.resolution.<xmlattr>.width", 800);
     screenHeight = pt.get("tetris.resolution.<xmlattr>.height", 600);
     showFps = pt.get("tetris.<xmlattr>.showFps", false);
@@ -59,7 +78,7 @@ void TetrisConfig::load() {
 void TetrisConfig::save() {
     ptree pt;
     pt.put("tetris.<xmlattr>.orthographic", orthographic);
-    pt.put("tetris.<xmlattr>.fullscreen", fullScreen);
+    pt.put("tetris.<xmlattr>.displayMode", printDisplayMode(displayMode));
     pt.put("tetris.<xmlattr>.monitor", monitor);
     pt.put("tetris.resolution.<xmlattr>.width", screenWidth);
     pt.put("tetris.resolution.<xmlattr>.height", screenHeight);

@@ -42,6 +42,7 @@ public:
     void rotate(bool clockwise);
     int collect();
     void reset();
+    void resetGameOver();
     TetrisStatistics getStats() const;
     ~Tetris();
 };

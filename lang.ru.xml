@@ -7,7 +7,10 @@
     <string id="MainMenu_Exit" value="Выход"/>
     <string id="OptionsMenu_Back" value="Назад"/>
     <string id="OptionsMenu_Resolution" value="Разрешение"/>
-    <string id="OptionsMenu_Fullscreen" value="Полный экран"/>
+    <string id="OptionsMenu_DisplayMode" value="Режим экрана"/>
+    <string id="OptionsMenu_DisplayMode_Fullscreen" value="Весь экран"/>
+    <string id="OptionsMenu_DisplayMode_Windowed" value="Оконный"/>
+    <string id="OptionsMenu_DisplayMode_Borderless" value="Оконный (весь экран)"/>
     <string id="OptionsMenu_InitialLevel" value="Начальный уровень"/>
     <string id="OptionsMenu_Rumble" value="Вибрация"/>
     <string id="OptionsMenu_Monitor" value="Монитор"/>

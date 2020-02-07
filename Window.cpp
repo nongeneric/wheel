@@ -4,23 +4,21 @@
 
 #include <stdexcept>
 #include <iostream>
-#include <boost/lexical_cast.hpp>
 
 std::vector<Monitor> getMonitors() {
     std::vector<Monitor> res;
-    auto monitorsCount = SDL_GetNumVideoDisplays();
+    unsigned monitorsCount = SDL_GetNumVideoDisplays();
 
-    for (auto monitor = 0; monitor < monitorsCount; ++monitor) {
-        auto name = boost::lexical_cast<std::string>(monitor);
+    for (auto monitor = 0u; monitor < monitorsCount; ++monitor) {
         SDL_Rect rect;
         SDL_GetDisplayBounds(monitor, &rect);
+        auto name = vformat("%s (#%d)", SDL_GetDisplayName(monitor), monitor);
         res.push_back({monitor, name, rect.w, rect.h});
     }
     return res;
 }
 
-Monitor findMonitor(std::string name) {
-    auto index = boost::lexical_cast<unsigned>(name);
+Monitor findMonitor(unsigned index) {
     auto monitors = getMonitors();
     if (index >= monitors.size())
         return monitors[0];
@@ -40,7 +38,7 @@ void glDebugCallbackFunction(
         exit(1);
 }
 
-Window::Window(std::string title, bool fullscreen, unsigned width, unsigned height, std::string monitor) {
+Window::Window(std::string title, DisplayMode displayMode, unsigned width, unsigned height, unsigned monitor) {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC))
         throw std::runtime_error(vformat("sdl2 init failed (%s)", SDL_GetError()));
 
@@ -50,11 +48,22 @@ Window::Window(std::string title, bool fullscreen, unsigned width, unsigned heig
 
     auto xPos = SDL_WINDOWPOS_CENTERED, yPos = SDL_WINDOWPOS_CENTERED;
     int flags = SDL_WINDOW_OPENGL;
-    if (fullscreen) {
-        flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+
+    if (displayMode == DisplayMode::Fullscreen || displayMode == DisplayMode::Borderless) {
         auto monitorInfo = findMonitor(monitor);
         width = monitorInfo.currentWidth;
         height = monitorInfo.currentHeight;
+        xPos = SDL_WINDOWPOS_CENTERED_DISPLAY(monitorInfo.id);
+        yPos = SDL_WINDOWPOS_CENTERED_DISPLAY(monitorInfo.id);
+    }
+
+    if (displayMode == DisplayMode::Fullscreen) {
+        flags |= SDL_WINDOW_FULLSCREEN;
+    } else if (displayMode == DisplayMode::Borderless) {
+        flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+        flags |= SDL_WINDOW_ALWAYS_ON_TOP;
+        flags |= SDL_WINDOW_MOUSE_CAPTURE;
+        flags |= SDL_WINDOW_INPUT_GRABBED;
     } else {
         flags |= SDL_WINDOW_RESIZABLE;
     }

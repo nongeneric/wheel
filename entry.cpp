@@ -207,7 +207,7 @@ struct MainProgramInfo {
 MainProgramInfo createMainProgram() {
     MainProgramInfo info;
     Program& program = info.program;
-    program.addVertexShader(vertexShader);    
+    program.addVertexShader(vertexShader);
     program.addFragmentShader(fragmentShader);
     program.bindAttribLocation(0, "position");
     program.bindAttribLocation(1, "texCoord");
@@ -261,8 +261,8 @@ struct OptionsMenuStructure {
     MenuLeaf* initialSpeed;
     MenuLeaf* rumble;
     MenuLeaf* monitor;
-    MenuLeaf* fullscreen;
-    MenuLeaf* resolution;    
+    MenuLeaf* displayMode;
+    MenuLeaf* resolution;
 };
 
 std::vector<std::string> genNumbers(int count) {
@@ -282,22 +282,32 @@ OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig& config, Text& tex
     res.back = new MenuLeaf(&text, {}, config.string(StringID::OptionsMenu_Back), 0.05);
     std::string strYes = config.string(StringID::Menu_Yes);
     std::string strNo = config.string(StringID::Menu_No);
+    std::vector<std::string> displayModes {
+        config.string(StringID::OptionsMenu_DisplayMode_Fullscreen),
+        config.string(StringID::OptionsMenu_DisplayMode_Windowed),
+        config.string(StringID::OptionsMenu_DisplayMode_Borderless),
+    };
+    auto displayMode = displayModes.at(static_cast<int>(config.displayMode));
     (res.initialSpeed = new MenuLeaf(&text, genNumbers(20), config.string(StringID::OptionsMenu_InitialLevel), 0.05f))->setValue(vformat("%d", speed));
     (res.rumble = new MenuLeaf(&text, {strYes, strNo}, config.string(StringID::OptionsMenu_Rumble), 0.05f))->setValue(config.rumble ? strYes : strNo);
-    (res.fullscreen = new MenuLeaf(&text, {strYes, strNo}, config.string(StringID::OptionsMenu_Fullscreen), 0.05f))->setValue(config.fullScreen ? strYes : strNo);
+    (res.displayMode = new MenuLeaf(&text, displayModes, config.string(StringID::OptionsMenu_DisplayMode), 0.05f))->setValue(displayMode);
     auto monitors = getMonitors();
     std::vector<std::string> monitorNames;
     for (auto& monitor : monitors) {
         monitorNames.push_back(monitor.name);
     }
+    auto monitorIt = std::find_if(begin(monitors), end(monitors), [&](const auto& monitor) {
+        return monitor.id == config.monitor;
+    });
+    auto monitorName = monitorIt == end(monitors) ? monitorNames.front() : monitorIt->name;
     auto resolution = printResolution(monitors.front());
-    (res.monitor = new MenuLeaf(&text, monitorNames, config.string(StringID::OptionsMenu_Monitor), 0.05f))->setValue(monitorNames.front());
+    (res.monitor = new MenuLeaf(&text, monitorNames, config.string(StringID::OptionsMenu_Monitor), 0.05f))->setValue(monitorName);
     (res.resolution = new MenuLeaf(&text, {resolution}, config.string(StringID::OptionsMenu_Resolution), 0.05f))->setValue(resolution);
     menu.addLeaf(res.back);
     menu.addLeaf(res.monitor);
     menu.addLeaf(res.initialSpeed);
     menu.addLeaf(res.rumble);
-    menu.addLeaf(res.fullscreen);
+    menu.addLeaf(res.displayMode);
     menu.addLeaf(res.resolution);
     return res;
 }
@@ -373,7 +383,7 @@ public:
             _current->highlight(selectedPos);
         _show = on;
         if (_show) {
-            _current->beginAnimating(true);            
+            _current->beginAnimating(true);
         }
     }
     bool show() const {
@@ -438,7 +448,7 @@ public:
         return _desired;
     }
     void setTransform(glm::mat4) override { }
-    void show(bool on, bool newHighScore) {        
+    void show(bool on, bool newHighScore) {
         _te.show(on);
         _newHighScore = newHighScore;
         _gameOver.set(newHighScore ? _strNewHighScore : _strGameOver);
@@ -527,7 +537,7 @@ public:
             _pm->flip();
             _mc->show();
         } else if (_current == State::Menu && state == State::Game) {
-            _pm->flip();        
+            _pm->flip();
         } else if (_current == State::HighScores && state == State::Menu) {
             _hsm->show(false);
             _mc->backFromCustomScreen();
@@ -599,7 +609,7 @@ int desktop_main() {
         return 1;
     }
 
-    Window window("wheel", config.fullScreen, config.screenWidth, config.screenHeight, config.monitor);
+    Window window("wheel", config.displayMode, config.screenWidth, config.screenHeight, config.monitor);
     Keyboard keys(&window);
     PauseManager pm(&keys);
     MainProgramInfo program = createMainProgram();
@@ -617,7 +627,7 @@ int desktop_main() {
     fseconds elapsed;
     fseconds wait;
 
-    Text text;    
+    Text text;
 
     HudList hudList(5, &text, 0.03f);
     WindowLayout hudLayout(&hudList, false);
@@ -657,7 +667,7 @@ int desktop_main() {
     bool canManuallyMove;
     bool normalStep;
     bool nextPiece = false;
-    bool exit = false;    
+    bool exit = false;
     keys.onRepeat(InputCommand::MoveLeft, fseconds(0.09f), State::Game, [&]() {
         if (canManuallyMove) {
             tetris.moveLeft();
@@ -711,7 +721,7 @@ int desktop_main() {
     menu.onValueChanged(mainMenuStructure.hallOfFame, [&]() {
         stateManager.goToHighscoresState();
     });
-    menu.onValueChanged(mainMenuStructure.exit, [&]() {        
+    menu.onValueChanged(mainMenuStructure.exit, [&]() {
         exit = true;
     });
     menu.onValueChanged(optionsMenuStructure.back, [&]() { menu.back(); });
@@ -723,28 +733,32 @@ int desktop_main() {
             rumble(1, fseconds(0.2));
         }
     });
-    menu.onValueChanged(optionsMenuStructure.fullscreen, [&]() {
-        bool newValue = optionsMenuStructure.fullscreen->value() ==
-                config.string(StringID::Menu_Yes);
-        config.fullScreen = newValue;
+    menu.onValueChanged(optionsMenuStructure.displayMode, [&]() {
+        auto value = optionsMenuStructure.displayMode->value();
+        if (value == config.string(StringID::OptionsMenu_DisplayMode_Fullscreen))
+            config.displayMode = DisplayMode::Fullscreen;
+        else if (value == config.string(StringID::OptionsMenu_DisplayMode_Windowed))
+            config.displayMode = DisplayMode::Windowed;
+        else if (value == config.string(StringID::OptionsMenu_DisplayMode_Borderless))
+            config.displayMode = DisplayMode::Borderless;
     });
     menu.onValueChanged(optionsMenuStructure.initialSpeed, [&]() {
         int newValue = boost::lexical_cast<int>(optionsMenuStructure.initialSpeed->value());
         config.initialLevel = newValue;
     });
     menu.onValueChanged(optionsMenuStructure.monitor, [&]() {
-        std::string monitor = optionsMenuStructure.monitor->value();
-        config.monitor = monitor;
+        const auto& values = optionsMenuStructure.monitor->values();
+        auto selected = optionsMenuStructure.monitor->value();
+        auto index = std::distance(begin(values), std::find(begin(values), end(values), selected));
         for (auto& m : getMonitors()) {
-            if (m.name == monitor) {
+            if (m.id == index) {
+                config.monitor = index;
                 auto resolution = printResolution(m);
                 optionsMenuStructure.resolution->updateValues({resolution}, resolution);
             }
         }
     });
     menu.onValueChanged(optionsMenuStructure.resolution, [&]() { });
-
-    config.monitor = optionsMenuStructure.monitor->value();
 
     FpsLimiter fpsLimiter(config.fpsCap);
 
@@ -809,7 +823,7 @@ int desktop_main() {
         if (nextPiece) {
             keys.stopRepeats(InputCommand::MoveDown);
             nextPiece = false;
-        }        
+        }
 
         if (!waiting) {
             wait = copyState(tetris,
@@ -853,8 +867,9 @@ int desktop_main() {
                 hscreenLinesLayout.updateFramebuffer(framebuffer);
                 hscreenScoreLayout.updateFramebuffer(framebuffer);
                 config.save();
+                tetris.reset();
             });
-            tetris.reset();
+            tetris.resetGameOver();
         }
 
         glDisable(GL_DEPTH_TEST);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Config.h"
+
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
@@ -11,7 +13,7 @@
 class Window {
     SDL_Window* _window;
 public:
-    Window(std::string title, bool fullscreen, unsigned width, unsigned height, std::string monitor);
+    Window(std::string title, DisplayMode displayMode, unsigned width, unsigned height, unsigned monitor);
     ~Window();
     void swap();
     bool shouldClose();
@@ -20,7 +22,7 @@ public:
 };
 
 struct Monitor {
-    int id;
+    unsigned id;
     std::string name;
     int currentWidth;
     int currentHeight;
