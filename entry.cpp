@@ -55,17 +55,17 @@ class Mesh;
 void setScale(Mesh& mesh, glm::vec3 scale);
 
 class MeshWrapper {
-    struct concept {
-        virtual ~concept() = default;
-        virtual concept* copy_() = 0;
+    struct Concept {
+        virtual ~Concept() = default;
+        virtual Concept* copy_() = 0;
         virtual void draw_(int mv_location, int mvp_location, glm::mat4 vp, Program& program) = 0;
         virtual void setPos_(glm::vec3) = 0;
         virtual void animate_(fseconds dt) = 0;
     };
     template <typename T>
-    struct model : concept {
+    struct model : Concept {
         model(T m) : data_(std::move(m)) { }
-        concept* copy_() override {
+        Concept* copy_() override {
             return new model(*this);
         }
         void draw_(int mv_location, int mvp_location, glm::mat4 vp, Program& program) override {
@@ -79,7 +79,7 @@ class MeshWrapper {
         }
         T data_;
     };
-    std::unique_ptr<concept> _ptr;
+    std::unique_ptr<Concept> _ptr;
 public:
     template <typename T>
     MeshWrapper(T x) : _ptr(new model<T>(std::move(x))) { }

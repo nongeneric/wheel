@@ -63,10 +63,7 @@ class Text::impl {
         return entry;
     }
 public:
-    impl() : _fbitmap(1500, 300, 8) {
-    }
-
-    Bitmap renderText(std::string utf8str, unsigned pxHeight) {
+    Bitmap renderText(std::string utf8str, glm::vec2 framebuffer, unsigned pxHeight) {
         auto str = tou32str(utf8str);
         if (!freeTypeInit) {
             auto error = FT_Init_FreeType(&library);
@@ -87,6 +84,9 @@ public:
                 96
             );
         assert(!error);
+
+        if (framebuffer.x > _fbitmap.width() || framebuffer.y > _fbitmap.height())
+            _fbitmap = Bitmap(framebuffer.x, framebuffer.y, 8);
 
         _fbitmap.fill(0);
 
@@ -115,8 +115,8 @@ public:
 Text::Text() : _impl(new impl())
 { }
 
-Bitmap Text::renderText(std::string str, unsigned pxHeight) {
-    return _impl->renderText(str, pxHeight);
+Bitmap Text::renderText(std::string str, glm::vec2 framebuffer, unsigned pxHeight) {
+    return _impl->renderText(str, framebuffer, pxHeight);
 }
 
 Text::~Text() { }

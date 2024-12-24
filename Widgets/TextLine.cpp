@@ -4,7 +4,7 @@
 
 void TextLine::updateText() {
     _lineChanged = false;
-    _elem.setBitmap(_text->renderText(_line, _framebuffer.y * _relHeight));
+    _elem.setBitmap(_text->renderText(_line, _framebuffer, _framebuffer.y * _relHeight));
     _elem.arrange(_pos, glm::vec2 { 0, 0 });
 }
 

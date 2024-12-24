@@ -297,7 +297,7 @@ TEST(BitmapTest, RepresentationTest) {
     ASSERT_EQ(2, b.pitch());
     b.fill(0);
     auto pos = b.data();
-    std::all_of(pos, pos + b.pitch() * b.height(), [] (char x) { return x == 0; });
+    ASSERT_TRUE(std::all_of(pos, pos + b.pitch() * b.height(), [] (char x) { return x == 0; }));
 
     b.setPixel(0, 0, 10);
     b.setPixel(0, 1, 10);

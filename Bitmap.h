@@ -5,10 +5,10 @@
 
 class Bitmap {
     std::shared_ptr<std::vector<char>> _vec;
-    unsigned _width;
-    unsigned _height;
-    unsigned _bpp;
-    unsigned _pitch;
+    unsigned _width = 0;
+    unsigned _height = 0;
+    unsigned _bpp = 0;
+    unsigned _pitch = 0;
     unsigned pixelPos(unsigned x, unsigned y) const;
 public:
     Bitmap();

@@ -24,9 +24,7 @@ public:
     Random(T from, T to)
         : _distribution(from, to)
     {
-#ifndef DEBUG
         _engine.seed(time(NULL));
-#endif
         _rndfunc = std::bind(_distribution, _engine);
     }
     T operator()() {
