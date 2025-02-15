@@ -1,13 +1,13 @@
 #include "Menu.h"
 
 #include "../Text.h"
-#include "../rstd.h"
 #include "MenuLeaf.h"
 
 std::vector<ISpreadAnimationLine *> Menu::leafsAsAnimationLines() {
-    return rstd::fmap<std::unique_ptr<MenuLeaf>, ISpreadAnimationLine*>(_leafs, [](std::unique_ptr<MenuLeaf> const& leaf) {
-        return leaf.get();
-    });
+    std::vector<ISpreadAnimationLine*> res;
+    for (auto const& leaf : _leafs)
+        res.push_back(leaf.get());
+    return res;
 }
 
 Menu::Menu(Text *textCache) : _textCache(textCache) { }
@@ -17,8 +17,11 @@ void Menu::addLeaf(MenuLeaf *leaf)
     _leafs.push_back(std::unique_ptr<MenuLeaf>(leaf));
 }
 
-std::vector<MenuLeaf *> Menu::leafs() {
-    return rstd::fmap<std::unique_ptr<MenuLeaf>, MenuLeaf*>(_leafs, [](const std::unique_ptr<MenuLeaf>& ptr) { return ptr.get(); });
+std::vector<MenuLeaf*> Menu::leafs() {
+    std::vector<MenuLeaf*> res;
+    for (auto const& ptr : _leafs)
+        res.push_back(ptr.get());
+    return res;
 }
 
 Menu *Menu::parent() {

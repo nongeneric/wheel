@@ -4,7 +4,6 @@
 #include <iostream>
 #include <algorithm>
 #include <format>
-#include "rstd.h"
 #include "HighscoreManager.h"
 #include "Bitmap.h"
 

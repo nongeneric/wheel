@@ -1,5 +1,4 @@
 #include "Keyboard.h"
-#include "rstd.h"
 
 void Keyboard::invokeHandler(
     InputCommand command, const std::map<InputCommand, std::vector<Keyboard::Handler>>& handlers)

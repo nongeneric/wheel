@@ -1,5 +1,4 @@
 #include "SpreadAnimator.h"
-#include "../rstd.h"
 #include <glm/gtc/matrix_transform.hpp>
 
 float SpreadAnimator::animCurve(float a, float b, float ratio) {
@@ -21,9 +20,10 @@ float SpreadAnimator::calcWidthAfterMeasure(float available) {
 }
 
 std::vector<float> SpreadAnimator::getCenters() {
-    return rstd::fmap<Pos, float>(_positions, [](Pos const& p) {
-        return p.center;
-    });
+    std::vector<float> res;
+    for (auto const& p : _positions)
+        res.push_back(p.center);
+    return res;
 }
 
 void SpreadAnimator::beginAnimating(bool assemble) {

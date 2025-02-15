@@ -1,7 +1,8 @@
 #include "HighscoreScreen.h"
 
 #include "../Text.h"
-#include "../rstd.h"
+
+#include <numeric>
 
 HighscoreScreen::HighscoreLine::HighscoreLine(Text *text, std::vector<std::string> columns) {
     this->columns = columns;
@@ -99,7 +100,7 @@ void HighscoreScreen::measure(glm::vec2, glm::vec2 framebuffer) {
         y += line.textLines.front().desired().y + _yMargin;
     }
     float xMargins = (_columnWidths.size() - 1) * _xMargin;
-    _desired = glm::vec2 { rstd::accumulate(_columnWidths, .0f) + xMargins, y };
+    _desired = glm::vec2 { std::accumulate(begin(_columnWidths), end(_columnWidths), .0f) + xMargins, y };
     _animator->calcWidthAfterMeasure(framebuffer.x);
 }
 
