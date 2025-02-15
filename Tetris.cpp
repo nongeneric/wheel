@@ -1,7 +1,9 @@
 #include "Tetris.h"
 #include <assert.h>
+#include "Random.h"
 
 #include <vector>
+#include <functional>
 #include <algorithm>
 
 struct BBox {
@@ -151,7 +153,7 @@ int pieceInitialYOffset[] = {
     2, 0, 0, 0, 1, 1, 1
 };
 
-class Tetris::impl {
+class Tetris : public ITetris {
     int _hor, _vert;
     bool _nothingFalling;
     State _staticGrid;
@@ -163,6 +165,7 @@ class Tetris::impl {
     std::function<PieceType::t()> _generator;
     TetrisStatistics _stats;
     unsigned _initialLevel;
+
     State cut(State& source, unsigned posX, unsigned posY, unsigned size) {
         State res(size);
         for (size_t y = 0; y < size; ++y) {
@@ -179,13 +182,13 @@ class Tetris::impl {
         return res;
     }
 
-    void paste(State const& piece, State& state, unsigned posX, unsigned posY) {
+    void paste(State const& piece, State& state, unsigned posX, unsigned posY) const {
         for (size_t y = 0; y < piece.size(); ++y) {
             std::ranges::copy(piece.at(y), begin(state.at(posY + y)) + posX);
         }
     }
 
-    State patchPiece(State const& piece, PieceType::t pieceType) {
+    State patchPiece(State const& piece, PieceType::t pieceType) const {
         State copy = piece;
         std::ranges::reverse(copy); // pieces and the grid have different coord systems (y axis)
         for (Line& line : copy) {
@@ -276,7 +279,7 @@ class Tetris::impl {
         }
     }
 
-    State createState(int width, int height, CellState val) {
+    State createState(int width, int height, CellState val) const {
         State state;
         state.resize(height);
         for (Line& line : state) {
@@ -307,16 +310,12 @@ class Tetris::impl {
         return static_cast<PieceOrientation::t>((prev + delta + PieceOrientation::count) % PieceOrientation::count);
     }
 public:
-    impl(unsigned hor, unsigned vert, std::function<PieceType::t()> generator, unsigned initialLevel)
-        : _hor(hor + 8),
-          _vert(vert + 8),
-          _generator(generator),
-          _initialLevel(initialLevel)
-    {
+    Tetris(int hor, int vert, std::function<PieceType::t()> generator)
+        : _hor(hor + 8), _vert(vert + 8), _generator(generator), _initialLevel(0) {
         reset();
     }
 
-    int collect() {
+    int collect() override {
         auto middle = std::ranges::stable_partition(_staticGrid, [](Line const& line) {
             return !std::ranges::all_of(line, [](CellInfo cell) {
                 return cell.state == CellState::Dying;
@@ -330,14 +329,14 @@ public:
         return lines;
     }
 
-    CellInfo getState(int x, int y) {
-        CellInfo& dynInfo = _dynamicGrid.at(y + 4).at(x + 4);
+    CellInfo getState(int x, int y) const override {
+        CellInfo const& dynInfo = _dynamicGrid.at(y + 4).at(x + 4);
         if (dynInfo.state == CellState::Shown)
             return dynInfo;
         return _staticGrid.at(y + 4).at(x + 4);
     }
 
-    bool step() {
+    bool step() override {
         if (_nothingFalling) {
             nextPiece();
             kill();
@@ -348,15 +347,15 @@ public:
         return false;
     }
 
-    void moveRight() {
+    void moveRight() override {
         moveHor(1);
     }
 
-    void moveLeft() {
+    void moveLeft() override {
         moveHor(-1);
     }
 
-    void rotate(bool clockwise) {
+    void rotate(bool clockwise) override {
         if (_bbPiece.y < 0)
             return;
         auto copy = _dynamicGrid;
@@ -374,11 +373,11 @@ public:
         }
     }
 
-    TetrisStatistics getStats() {
+    TetrisStatistics getStats() const override {
         return _stats;
     }
 
-    CellInfo getNextPieceState(int x, int y) {
+    CellInfo getNextPieceState(int x, int y) const override {
         State state = createState(4, 4, CellState::Hidden);
         assert((unsigned)_nextPiece < PieceType::count);
         State piece = patchPiece(pieces[_nextPiece][PieceOrientation::Up], _nextPiece);
@@ -387,11 +386,11 @@ public:
         return state.at(y).at(x);
     }
 
-    void resetGameOver() {
+    void resetGameOver() override {
         _stats.gameOver = false;
     }
 
-    void reset() {
+    void reset() override {
         _nothingFalling = true;
         _nextPiece = _generator();
         _piece = _nextPiece;
@@ -402,57 +401,11 @@ public:
         _stats = TetrisStatistics();
     }
 
-    void setInitialLevel(int level) {
+    void setInitialLevel(int level) override {
         _initialLevel = level;
     }
 };
 
-Tetris::Tetris(int hor, int vert, std::function<PieceType::t()> generator)
-    : _impl(new impl(hor, vert, generator, 0))
-{ }
-
-void Tetris::setInitialLevel(int level) {
-    _impl->setInitialLevel(level);
+std::unique_ptr<ITetris> makeTetris(int hor, int vert, std::function<PieceType::t()> generator) {
+    return std::make_unique<Tetris>(hor, vert, generator);
 }
-
-CellInfo Tetris::getState(int x, int y) const {
-    return _impl->getState(x, y);
-}
-
-CellInfo Tetris::getNextPieceState(int x, int y) const {
-    return _impl->getNextPieceState(x, y);
-}
-
-bool Tetris::step() {
-    return _impl->step();
-}
-
-void Tetris::moveRight() {
-    _impl->moveRight();
-}
-
-void Tetris::moveLeft() {
-    _impl->moveLeft();
-}
-
-void Tetris::rotate(bool clockwise) {
-    _impl->rotate(clockwise);
-}
-
-int Tetris::collect() {
-    return _impl->collect();
-}
-
-void Tetris::resetGameOver() {
-    _impl->resetGameOver();
-}
-
-void Tetris::reset() {
-    _impl->reset();
-}
-
-TetrisStatistics Tetris::getStats() const {
-    return _impl->getStats();
-}
-
-Tetris::~Tetris() { }

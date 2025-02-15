@@ -614,8 +614,8 @@ int desktop_main() {
     PauseManager pm(&keys);
     MainProgramInfo program = createMainProgram();
     std::vector<MeshWrapper> meshes = genMeshes();
-    Tetris tetris(g_TetrisHor, g_TetrisVert, Generator());
-    tetris.setInitialLevel(config.initialLevel);
+    auto tetris = makeTetris(g_TetrisHor, g_TetrisVert, Generator());
+    tetris->setInitialLevel(config.initialLevel);
     Camera camera;
     CameraController camController(&window, &camera);
 
@@ -670,32 +670,32 @@ int desktop_main() {
     bool exit = false;
     keys.onRepeat(InputCommand::MoveLeft, fseconds(0.09f), State::Game, [&]() {
         if (canManuallyMove) {
-            tetris.moveLeft();
+            tetris->moveLeft();
         }
     });
     keys.onRepeat(InputCommand::MoveRight, fseconds(0.09f), State::Game, [&]() {
         if (canManuallyMove) {
-            tetris.moveRight();
+            tetris->moveRight();
         }
     });
     keys.onDown(InputCommand::RotateLeft, State::Game, [&]() {
         if (canManuallyMove) {
-            tetris.rotate(false);
+            tetris->rotate(false);
         }
     });
     keys.onDown(InputCommand::RotateRight, State::Game, [&]() {
         if (canManuallyMove) {
-            tetris.rotate(true);
+            tetris->rotate(true);
         }
     });
     keys.onDown(InputCommand::RotateRightAlt, State::Game, [&]() {
         if (canManuallyMove) {
-            tetris.rotate(true);
+            tetris->rotate(true);
         }
     });
     keys.onRepeat(InputCommand::MoveDown, fseconds(0.03f), State::Game, [&]() {
         if (!normalStep && canManuallyMove) {
-            nextPiece |= tetris.step();
+            nextPiece |= tetris->step();
         }
     });
     keys.onDown(InputCommand::MoveLeft, State::HighScores, [&]() { // TODO: move to highscore
@@ -711,8 +711,8 @@ int desktop_main() {
     });
     menu.onValueChanged(mainMenuStructure.restart, [&]() {
         wait = fseconds();
-        tetris.setInitialLevel(config.initialLevel);
-        tetris.reset();
+        tetris->setInitialLevel(config.initialLevel);
+        tetris->reset();
         stateManager.goTo(State::Game);
     });
     menu.onValueChanged(mainMenuStructure.options, [&]() {
@@ -772,9 +772,9 @@ int desktop_main() {
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        hudList.setLine(0, vformat(config.string(StringID::HUD_Lines), tetris.getStats().lines));
-        hudList.setLine(1, vformat(config.string(StringID::HUD_Score), tetris.getStats().score));
-        hudList.setLine(2, vformat(config.string(StringID::HUD_Level), tetris.getStats().level));
+        hudList.setLine(0, vformat(config.string(StringID::HUD_Lines), tetris->getStats().lines));
+        hudList.setLine(1, vformat(config.string(StringID::HUD_Score), tetris->getStats().score));
+        hudList.setLine(2, vformat(config.string(StringID::HUD_Level), tetris->getStats().level));
         if (config.showFps) {
             hudList.setLine(3, vformat(config.string(StringID::HUD_FPS), fps.fps()));
         }
@@ -802,13 +802,13 @@ int desktop_main() {
 
         bool waiting = wait > fseconds();
 
-        canManuallyMove = !tetris.getStats().gameOver && !waiting && !pm.paused();
+        canManuallyMove = !tetris->getStats().gameOver && !waiting && !pm.paused();
         normalStep = false;
-        fseconds levelPenalty(speedCurve(tetris.getStats().level));
+        fseconds levelPenalty(speedCurve(tetris->getStats().level));
         if (elapsed > delay - levelPenalty && canManuallyMove) {
             normalStep = true;
-            tetris.collect();
-            nextPiece |= tetris.step();
+            tetris->collect();
+            nextPiece |= tetris->step();
             elapsed -= delay - levelPenalty;
         }
 
@@ -825,15 +825,15 @@ int desktop_main() {
         }
 
         if (!waiting) {
-            wait = copyState(tetris,
-                             &Tetris::getState,
+            wait = copyState(*tetris,
+                             &ITetris::getState,
                              g_TetrisHor,
                              g_TetrisVert,
                              meshes[trunk].obj<Trunk>(),
                              fseconds(1.0f) - levelPenalty);
-            copyState(tetris, &Tetris::getNextPieceState, 4, 4, meshes[nextPieceTrunk].obj<Trunk>(), fseconds());
+            copyState(*tetris, &ITetris::getNextPieceState, 4, 4, meshes[nextPieceTrunk].obj<Trunk>(), fseconds());
         }
-        auto lines = tetris.collect();
+        auto lines = tetris->collect();
         if (lines > 0) {
             rumble(0.2 * lines, fseconds(0.2));
         }
@@ -847,7 +847,7 @@ int desktop_main() {
             draw(mesh, program.U_WORLD, program.U_MVP, vpMatrix, program.program);
         }
 
-        auto stats = tetris.getStats();
+        auto stats = tetris->getStats();
         if (stats.gameOver) {
             rumble(1, fseconds(0.8));
 
@@ -866,9 +866,9 @@ int desktop_main() {
                 hscreenLinesLayout.updateFramebuffer(framebuffer);
                 hscreenScoreLayout.updateFramebuffer(framebuffer);
                 config.save();
-                tetris.reset();
+                tetris->reset();
             });
-            tetris.resetGameOver();
+            tetris->resetGameOver();
         }
 
         glDisable(GL_DEPTH_TEST);

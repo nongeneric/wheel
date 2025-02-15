@@ -31,7 +31,7 @@ std::string prettyPrint(std::function<CellState(int, int)> getter, int xMax, int
     return res;
 }
 
-bool exact(Tetris const& tetris, std::vector<std::vector<CellState>> grid) {
+bool exact(ITetris const& tetris, std::vector<std::vector<CellState>> grid) {
     std::ranges::reverse(grid);
     for (int y = 0; y < TEST_DIMV; ++y) {
         for (int x = 0; x < TEST_DIMH; ++x) {
@@ -52,98 +52,98 @@ bool exact(Tetris const& tetris, std::vector<std::vector<CellState>> grid) {
 }
 
 TEST(TetrisTests, Simple1) {
-    Tetris t(TEST_DIMH, TEST_DIMV, []() { return PieceType::O; });
-    ASSERT_TRUE(exact(t, {
+    auto t = makeTetris(TEST_DIMH, TEST_DIMV, []() { return PieceType::O; });
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
     }));
-    t.step();
-    ASSERT_TRUE(exact(t, {
+    t->step();
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _1, _1, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _1, _1, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
     }));
-    t.moveRight();
-    ASSERT_TRUE(exact(t, {
+    t->moveRight();
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _0, _1, _1, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _1, _1, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
     }));
-    t.moveRight();
-    t.moveRight();
-    t.moveRight();
-    ASSERT_TRUE(exact(t, {
+    t->moveRight();
+    t->moveRight();
+    t->moveRight();
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _0, _0, _0, _0, _1, _1 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _1, _1 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
     }));
-    t.moveRight(); // must not move outside the border
-    t.moveRight();
-    ASSERT_TRUE(exact(t, {
+    t->moveRight(); // must not move outside the border
+    t->moveRight();
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _0, _0, _0, _0, _1, _1 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _1, _1 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
     }));
-    t.step();
-    ASSERT_TRUE(exact(t, {
+    t->step();
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _1, _1 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _1, _1 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
     }));
-    t.step();
-    t.step();
-    ASSERT_TRUE(exact(t, {
+    t->step();
+    t->step();
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _1, _1 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _1, _1 },
     }));
-    t.moveLeft(); // must move not-yet-frozen piece
-    ASSERT_TRUE(exact(t, {
+    t->moveLeft(); // must move not-yet-frozen piece
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _1, _1, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _1, _1, _0 },
     }));
-    t.moveRight();
-    t.step();
-    ASSERT_TRUE(exact(t, {
+    t->moveRight();
+    t->step();
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _1, _1 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _1, _1 },
     })); // the piece is frozen now, another one isn't falling just yet
-    t.step();
-    ASSERT_TRUE(exact(t, {
+    t->step();
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _1, _1, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _1, _1, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _1, _1 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _1, _1 },
     })); // another one starts falling
-    t.moveRight();
-    t.moveRight();
-    t.step();
-    t.step();
-    t.step();
-    t.step();
-    ASSERT_TRUE(exact(t, {
+    t->moveRight();
+    t->moveRight();
+    t->step();
+    t->step();
+    t->step();
+    t->step();
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
@@ -151,57 +151,57 @@ TEST(TetrisTests, Simple1) {
         { _0, _0, _0, _0, _0, _0, _1, _1, _1, _1 },
     })); // both are frozen
     // place another two pieces
-    t.step();
-    t.moveLeft();
-    t.moveLeft();
-    t.moveLeft();
-    t.moveLeft();
-    t.step();
-    t.step();
-    t.step();
-    t.step();
-    t.step(); // new piece appears
-    ASSERT_TRUE(exact(t, {
+    t->step();
+    t->moveLeft();
+    t->moveLeft();
+    t->moveLeft();
+    t->moveLeft();
+    t->step();
+    t->step();
+    t->step();
+    t->step();
+    t->step(); // new piece appears
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _1, _1, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _1, _1, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _1, _1, _0, _0, _0, _0, _1, _1, _1, _1 },
         { _1, _1, _0, _0, _0, _0, _1, _1, _1, _1 },
     }));
-    t.moveLeft();
-    t.moveLeft();
-    t.step();
-    t.step();
-    t.step();
-    t.step();
-    ASSERT_TRUE(exact(t, {
+    t->moveLeft();
+    t->moveLeft();
+    t->step();
+    t->step();
+    t->step();
+    t->step();
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _1, _1, _1, _1, _0, _0, _1, _1, _1, _1 },
         { _1, _1, _1, _1, _0, _0, _1, _1, _1, _1 },
     }));
-    t.step();
-    t.step();
-    t.step();
-    t.step();
-    ASSERT_TRUE(exact(t, {
+    t->step();
+    t->step();
+    t->step();
+    t->step();
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _1, _1, _1, _1, _1, _1, _1, _1, _1, _1 },
         { _1, _1, _1, _1, _1, _1, _1, _1, _1, _1 },
     })); // two lines are complete, but not frozen
-    t.step();
-    ASSERT_TRUE(exact(t, {
+    t->step();
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _2, _2, _2, _2, _2, _2, _2, _2, _2, _2 },
         { _2, _2, _2, _2, _2, _2, _2, _2, _2, _2 },
     }));
-    t.collect(); // should be called to remove dying pieces
-    ASSERT_TRUE(exact(t, {
+    t->collect(); // should be called to remove dying pieces
+    ASSERT_TRUE(exact(*t, {
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
         { _0, _0, _0, _0, _0, _0, _0, _0, _0, _0 },
@@ -211,10 +211,10 @@ TEST(TetrisTests, Simple1) {
 }
 
 TEST(TetrisTests, Rotate) {
-    Tetris t(TEST_DIMH, TEST_DIMV, []() { return PieceType::O; });
-    t.rotate(true); // no piece is yet visible
-    t.moveLeft();
-    t.moveRight();
+    auto t = makeTetris(TEST_DIMH, TEST_DIMV, []() { return PieceType::O; });
+    t->rotate(true); // no piece is yet visible
+    t->moveLeft();
+    t->moveRight();
 }
 
 TEST(HighscoresTest, Simple1) {

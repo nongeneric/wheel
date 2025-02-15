@@ -94,8 +94,8 @@ void animate(Trunk &trunk, fseconds dt) {
         animate(cube.mesh, dt);
 }
 
-fseconds copyState(Tetris& tetris,
-                   std::function<CellInfo(Tetris&, int, int)> getter,
+fseconds copyState(ITetris& tetris,
+                   std::function<CellInfo(ITetris&, int, int)> getter,
                    int xMax,
                    int yMax,
                    Trunk& trunk,

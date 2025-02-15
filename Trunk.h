@@ -40,8 +40,8 @@ void draw(Trunk& t, int mv_location, int mvp_location, glm::mat4 vp, Program& pr
 void setPos(Trunk& trunk, glm::vec3 pos);
 void animate(Trunk& trunk, fseconds dt);
 fseconds copyState(
-        Tetris& tetris,
-        std::function<CellInfo(Tetris&, int x, int y)> getter,
+        ITetris& tetris,
+        std::function<CellInfo(ITetris&, int x, int y)> getter,
         int xMax,
         int yMax,
         Trunk& trunk,
