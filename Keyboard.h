@@ -69,8 +69,8 @@ public:
 
 class Keyboard {
     struct KeyInfo {
-        fseconds elapsed;
-        fseconds repeat;
+        fseconds elapsed{};
+        fseconds repeat{};
     };
     typedef std::function<void()> Handler;
     State _currentState;

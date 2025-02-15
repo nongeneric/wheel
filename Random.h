@@ -14,6 +14,10 @@ template <>
 struct Distrib<unsigned> {
     typedef typename std::uniform_int_distribution<unsigned> type;
 };
+template <>
+struct Distrib<int> {
+    typedef typename std::uniform_int_distribution<int> type;
+};
 
 template <typename T>
 class Random {

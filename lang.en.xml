@@ -2,6 +2,7 @@
 <strings>
     <string id="MainMenu_Resume" value="Resume"/>
     <string id="MainMenu_Restart" value="Restart"/>
+    <string id="MainMenu_StartAi" value="Start AI"/>
     <string id="MainMenu_Options" value="Options"/>
     <string id="MainMenu_HallOfFame" value="Hall of Fame"/>
     <string id="MainMenu_Exit" value="Exit"/>

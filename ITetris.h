@@ -15,7 +15,7 @@ enum class CellState {
 struct CellInfo {
     CellState state;
     PieceType::t piece;
-    inline CellInfo(CellState s = CellState::Hidden, PieceType::t p = PieceType::I)
+    CellInfo(CellState s = CellState::Hidden, PieceType::t p = PieceType::I)
         : state(s), piece(p) { }
 };
 

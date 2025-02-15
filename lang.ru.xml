@@ -2,6 +2,7 @@
 <strings>
     <string id="MainMenu_Resume" value="Продолжить"/>
     <string id="MainMenu_Restart" value="Перезапустить"/>
+    <string id="MainMenu_StartAi" value="Запустить ИИ"/>
     <string id="MainMenu_Options" value="Настройки"/>
     <string id="MainMenu_HallOfFame" value="Рекорды"/>
     <string id="MainMenu_Exit" value="Выход"/>

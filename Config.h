@@ -15,6 +15,7 @@ struct HighscoreRecord {
 #define STRING_ID_LIST \
     X(MainMenu_Resume) \
     X(MainMenu_Restart) \
+    X(MainMenu_StartAi) \
     X(MainMenu_Options) \
     X(MainMenu_HallOfFame) \
     X(MainMenu_Exit) \

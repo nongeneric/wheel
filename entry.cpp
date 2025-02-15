@@ -2,6 +2,7 @@
 #include "Window.h"
 #include "Program.h"
 #include "Tetris.h"
+#include "AiTetris.h"
 #include "Text.h"
 #include "vformat.h"
 #include "Config.h"
@@ -49,6 +50,7 @@
 
 const int g_TetrisHor = 10;
 const int g_TetrisVert = 20;
+const fseconds g_ElimDelay{0.35};
 
 class Mesh;
 void setScale(Mesh& mesh, glm::vec3 scale);
@@ -167,7 +169,7 @@ public:
 };
 
 class FpsCounter {
-    fseconds _elapsed;
+    fseconds _elapsed{};
     int _framesCount = 0;
     int _prevFPS = -1;
 public:
@@ -235,6 +237,7 @@ glm::mat4 getProjection(glm::vec2 framebuffer, bool orthographic) {
 struct MainMenuStructure {
     MenuLeaf* resume;
     MenuLeaf* restart;
+    MenuLeaf* playAi;
     MenuLeaf* options;
     MenuLeaf* hallOfFame;
     MenuLeaf* exit;
@@ -244,11 +247,13 @@ MainMenuStructure initMainMenu(Menu& menu, Text& text, TetrisConfig& config) {
     MainMenuStructure res;
     res.resume = new MenuLeaf(&text, {}, config.string(StringID::MainMenu_Resume), 0.05);
     res.restart = new MenuLeaf(&text, {}, config.string(StringID::MainMenu_Restart), 0.05);
+    res.playAi = new MenuLeaf(&text, {}, config.string(StringID::MainMenu_StartAi), 0.05);
     res.options = new MenuLeaf(&text, {}, config.string(StringID::MainMenu_Options), 0.05);
     res.hallOfFame = new MenuLeaf(&text, {}, config.string(StringID::MainMenu_HallOfFame), 0.05);
     res.exit = new MenuLeaf(&text, {}, config.string(StringID::MainMenu_Exit), 0.05);
     menu.addLeaf(res.resume);
     menu.addLeaf(res.restart);
+    menu.addLeaf(res.playAi);
     menu.addLeaf(res.options);
     menu.addLeaf(res.hallOfFame);
     menu.addLeaf(res.exit);
@@ -623,14 +628,14 @@ int desktop_main() {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glClearColor(0,0,0,0);
     auto past = chrono::high_resolution_clock::now();
-    fseconds elapsed;
-    fseconds wait;
+    fseconds elapsed{};
+    fseconds wait{};
 
     Text text;
 
     HudList hudList(4, &text, 0.03f);
     WindowLayout hudLayout(&hudList, false);
-    fseconds delay = fseconds(1.0f);
+    fseconds const delay = fseconds(1.0f);
 
     Painter2D p2d;
     p2d.rect(glm::vec2 { 0, 0 }, glm::vec2 { 1.0f, 1.0f }, glm::vec4 {0, 0, 0, 0.7});
@@ -710,8 +715,14 @@ int desktop_main() {
     });
     menu.onValueChanged(mainMenuStructure.restart, [&]() {
         wait = fseconds();
+        tetris = makeTetris(g_TetrisHor, g_TetrisVert, Generator());
         tetris->setInitialLevel(config.initialLevel);
-        tetris->reset();
+        stateManager.goTo(State::Game);
+    });
+    menu.onValueChanged(mainMenuStructure.playAi, [&]() {
+        wait = fseconds();
+        tetris = makeAiTetris();
+        tetris->setInitialLevel(config.initialLevel);
         stateManager.goTo(State::Game);
     });
     menu.onValueChanged(mainMenuStructure.options, [&]() {
@@ -796,17 +807,17 @@ int desktop_main() {
         if (pm.paused())
             dt = fseconds();
         wait -= dt;
-        elapsed += dt;
         past = now;
 
         bool waiting = wait > fseconds();
+        if (!waiting)
+            elapsed += dt;
 
         canManuallyMove = !tetris->getStats().gameOver && !waiting && !pm.paused();
         normalStep = false;
         fseconds levelPenalty(speedCurve(tetris->getStats().level));
         if (elapsed > delay - levelPenalty && canManuallyMove) {
             normalStep = true;
-            tetris->collect();
             nextPiece |= tetris->step();
             elapsed -= delay - levelPenalty;
         }
@@ -829,7 +840,7 @@ int desktop_main() {
                              g_TetrisHor,
                              g_TetrisVert,
                              meshes[trunk].obj<Trunk>(),
-                             fseconds(1.0f) - levelPenalty);
+                             fseconds(1.0f) - levelPenalty + g_ElimDelay);
             copyState(*tetris, &ITetris::getNextPieceState, 4, 4, meshes[nextPieceTrunk].obj<Trunk>(), fseconds());
         }
         auto lines = tetris->collect();
@@ -840,7 +851,6 @@ int desktop_main() {
         BindLock<Program> programLock(program.program);
         program.program.setUniform(program.U_GSAMPLER, 0);
         program.program.setUniform(program.U_AMBIENT, 0.4f);
-        //program.setUniform(U_DIFF_DIRECTION, glm::vec3(0, 0, 1));
         for (MeshWrapper& mesh : meshes) {
             animate(mesh, dt);
             draw(mesh, program.U_WORLD, program.U_MVP, vpMatrix, program.program);

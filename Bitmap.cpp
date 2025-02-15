@@ -1,6 +1,7 @@
 #include "Bitmap.h"
 
 #include <assert.h>
+#include <string.h>
 #include <algorithm>
 
 unsigned Bitmap::pixelPos(unsigned x, unsigned y) const {
@@ -67,7 +68,9 @@ unsigned Bitmap::pitch() const {
 }
 
 unsigned Bitmap::pixel(unsigned x, unsigned y) const {
-    auto res = *(unsigned const*)&_vec->at(pixelPos(x, y)) & ~(-1u << _bpp);
+    unsigned val = 0;
+    memcpy(&val, _vec->data() + pixelPos(x, y), _bpp / 8);
+    auto res = val & ~(-1u << _bpp);
     auto arr = (char*)&res;
     std::reverse(arr, arr + _bpp / 8);
     return res;

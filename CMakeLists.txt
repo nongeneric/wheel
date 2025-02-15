@@ -20,7 +20,7 @@ else()
     add_definitions(-DDEBUG)
     set(CMAKE_CXX_FLAGS "-ggdb -O0 ${CMAKE_CXX_FLAGS}")
 endif()
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -march=x86-64-v3 ${CMAKE_CXX_FLAGS}")
 
 find_package(PkgConfig REQUIRED)
 pkg_search_module(FREETYPE2 REQUIRED freetype2)
@@ -62,6 +62,7 @@ set(SRC_LIST
     Widgets/Painter2D.cpp
     Widgets/TextEdit.cpp
     Bitmap.cpp
+    AiTetris.cpp
     Tetris.cpp
     Time.cpp
     Program.cpp
@@ -69,6 +70,7 @@ set(SRC_LIST
     Text.cpp
     Config.cpp
     Keyboard.cpp
+    simulator.cpp
 )
 
 if(WIN32)
