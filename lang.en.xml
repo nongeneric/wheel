@@ -16,11 +16,10 @@
     <string id="OptionsMenu_Monitor" value="Monitor"/>
     <string id="Menu_Yes" value="Yes"/>
     <string id="Menu_No" value="No"/>
-    <string id="HUD_Lines" value="Lines: %d"/>
-    <string id="HUD_Score" value="Score: %d"/>
-    <string id="HUD_InputDevice" value="Device: %d"/>
-    <string id="HUD_Level" value="Level: %d"/>
-    <string id="HUD_FPS" value="FPS: %d"/>
+    <string id="HUD_Lines" value="Lines: {}"/>
+    <string id="HUD_Score" value="Score: {}"/>
+    <string id="HUD_Level" value="Level: {}"/>
+    <string id="HUD_FPS" value="FPS: {}"/>
     <string id="GameOverScreen_NewHighscore" value="New Highscore!"/>
     <string id="GameOverScreen_GameOver" value="Game Over!"/>
     <string id="GameOverScreen_PressEnter" value="Press [ENTER] to continue"/>

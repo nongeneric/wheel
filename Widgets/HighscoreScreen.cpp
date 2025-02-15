@@ -1,20 +1,19 @@
 #include "HighscoreScreen.h"
 
 #include "../Text.h"
-#include "../vformat.h"
 #include "../rstd.h"
 
 HighscoreScreen::HighscoreLine::HighscoreLine(Text *text, std::vector<std::string> columns) {
     this->columns = columns;
     for (std::string col : columns) {
         textLines.emplace_back(text, 0.05);
-        textLines.back().set(col);        
+        textLines.back().set(col);
     }
 }
 
 float HighscoreScreen::HighscoreLine::width() {
     float w = 0;
-    for (auto& tl : textLines)        
+    for (auto& tl : textLines)
         w += tl.desired().x;
     return w;
 }
@@ -56,14 +55,14 @@ void HighscoreScreen::setRecords(std::vector<HighscoreRecord> records) {
     int i = 1;
     for (HighscoreRecord rec : records) {
         _lines.push_back(HighscoreLine(_text, {
-            vformat("%d", i++),
+            std::to_string(i++),
             rec.name,
-            vformat("%d", rec.lines),
-            vformat("%d", rec.score),
-            vformat("%d", rec.initialLevel)
+            std::to_string(rec.lines),
+            std::to_string(rec.score),
+            std::to_string(rec.initialLevel)
         }));
     }
-    rstd::reverse(_lines);
+    std::ranges::reverse(_lines);
     _lines.push_back(HighscoreLine(_text, { "#", _strName, _strLines, _strScore, _strLevel }));
     _lines.back().highlight(true);
     _animator.reset(new SpreadAnimator(asAnimationLines()));
@@ -90,7 +89,7 @@ void HighscoreScreen::measure(glm::vec2, glm::vec2 framebuffer) {
     _xMargin = 0.02 * framebuffer.x;
     _yMargin = 0.02 * framebuffer.y;
     _columnWidths.resize(5);
-    rstd::fill(_columnWidths, 0);
+    std::ranges::fill(_columnWidths, 0);
     float y = 0;
     for (HighscoreLine& line : _lines) {
         for (unsigned i = 0; i < line.columns.size(); ++i) {

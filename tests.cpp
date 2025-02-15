@@ -3,7 +3,7 @@
 #include <functional>
 #include <iostream>
 #include <algorithm>
-#include "vformat.h"
+#include <format>
 #include "rstd.h"
 #include "HighscoreManager.h"
 #include "Bitmap.h"
@@ -25,14 +25,14 @@ std::string prettyPrint(std::function<CellState(int, int)> getter, int xMax, int
     for (int y = yMax - 1; y >= 0; --y) {
         res += "\n";
         for (int x = 0; x < xMax; ++x) {
-            res += vformat("%d ", static_cast<int>(getter(x, y)));
+            res += std::to_string(static_cast<int>(getter(x, y)));
         }
     }
     return res;
 }
 
 bool exact(Tetris const& tetris, std::vector<std::vector<CellState>> grid) {
-    rstd::reverse(grid);
+    std::ranges::reverse(grid);
     for (int y = 0; y < TEST_DIMV; ++y) {
         for (int x = 0; x < TEST_DIMH; ++x) {
             if (tetris.getState(x, y).state != grid.at(y).at(x)) {

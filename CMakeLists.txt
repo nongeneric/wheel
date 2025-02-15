@@ -3,7 +3,7 @@ project(wheel)
 
 set(wheel_VERSION "0.1.2")
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
@@ -43,63 +43,32 @@ add_definitions(-DGLM_FORCE_CTOR_INIT)
 add_definitions(-DGLM_FORCE_CXX11)
 
 set(SRC_LIST
-    Camera.h
     Camera.cpp
-    MathTools.h
     MathTools.cpp
-    Trunk.h
     Trunk.cpp
-    Mesh.h
     Mesh.cpp
-    ScaleAnimation.h
     ScaleAnimation.cpp
-    OpenGLbasics.h
     OpenGLbasics.cpp
-    BindLock.h
-    Texture.h
     Texture.cpp
-    HighscoreManager.h
     HighscoreManager.cpp
-    Widgets/CrispBitmap.h
     Widgets/CrispBitmap.cpp
-    Widgets/IWidget.h
-    Widgets/SpreadAnimator.h
     Widgets/SpreadAnimator.cpp
-    Widgets/TextLine.h
     Widgets/TextLine.cpp
-    Widgets/HudList.h
     Widgets/HudList.cpp
-    Widgets/MenuLeaf.h
     Widgets/MenuLeaf.cpp
-    Widgets/Menu.h
     Widgets/Menu.cpp
-    Widgets/HighscoreScreen.h
     Widgets/HighscoreScreen.cpp
-    Widgets/MenuController.h
     Widgets/MenuController.cpp
-    Widgets/Painter2D.h
     Widgets/Painter2D.cpp
-    Widgets/TextEdit.h
     Widgets/TextEdit.cpp
-    Bitmap.h
     Bitmap.cpp
-    Tetris.h
     Tetris.cpp
-    Time.h
     Time.cpp
-    Program.h
     Program.cpp
-    Window.h
     Window.cpp
-    Random.h
-    Text.h
     Text.cpp
-    Config.h
     Config.cpp
-    Keyboard.h
     Keyboard.cpp
-    rstd.h
-    vformat.h
 )
 
 if(WIN32)

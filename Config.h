@@ -9,7 +9,7 @@ struct HighscoreRecord {
     unsigned lines;
     unsigned score;
     unsigned initialLevel;
-    bool operator==(HighscoreRecord const&);
+    bool operator==(HighscoreRecord const&) const;
 };
 
 #define STRING_ID_LIST \
@@ -31,7 +31,6 @@ struct HighscoreRecord {
     X(OptionsMenu_Rumble) \
     X(HUD_Lines) \
     X(HUD_Score) \
-    X(HUD_InputDevice) \
     X(HUD_Level) \
     X(HUD_FPS) \
     X(GameOverScreen_NewHighscore) \

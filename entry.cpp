@@ -268,12 +268,12 @@ struct OptionsMenuStructure {
 std::vector<std::string> genNumbers(int count) {
     std::vector<std::string> res;
     for (int i = 0; i < count; ++i)
-        res.push_back(vformat("%d", i));
+        res.push_back(std::to_string(i));
     return res;
 }
 
 std::string printResolution(const Monitor& monitor) {
-    return vformat("%dx%d", monitor.currentWidth, monitor.currentHeight);
+    return std::format("{}x{}", monitor.currentWidth, monitor.currentHeight);
 }
 
 OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig& config, Text& text) {
@@ -288,7 +288,7 @@ OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig& config, Text& tex
         config.string(StringID::OptionsMenu_DisplayMode_Borderless),
     };
     auto displayMode = displayModes.at(static_cast<int>(config.displayMode));
-    (res.initialSpeed = new MenuLeaf(&text, genNumbers(20), config.string(StringID::OptionsMenu_InitialLevel), 0.05f))->setValue(vformat("%d", speed));
+    (res.initialSpeed = new MenuLeaf(&text, genNumbers(20), config.string(StringID::OptionsMenu_InitialLevel), 0.05f))->setValue(std::to_string(speed));
     (res.rumble = new MenuLeaf(&text, {strYes, strNo}, config.string(StringID::OptionsMenu_Rumble), 0.05f))->setValue(config.rumble ? strYes : strNo);
     (res.displayMode = new MenuLeaf(&text, displayModes, config.string(StringID::OptionsMenu_DisplayMode), 0.05f))->setValue(displayMode);
     auto monitors = getMonitors();
@@ -629,7 +629,7 @@ int desktop_main() {
 
     Text text;
 
-    HudList hudList(5, &text, 0.03f);
+    HudList hudList(4, &text, 0.03f);
     WindowLayout hudLayout(&hudList, false);
     fseconds delay = fseconds(1.0f);
 
@@ -773,11 +773,10 @@ int desktop_main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         hudList.setLine(0, vformat(config.string(StringID::HUD_Lines), tetris.getStats().lines));
-        hudList.setLine(1, vformat(config.string(StringID::HUD_InputDevice), keys.inputDeviceName()));
-        hudList.setLine(2, vformat(config.string(StringID::HUD_Score), tetris.getStats().score));
-        hudList.setLine(3, vformat(config.string(StringID::HUD_Level), tetris.getStats().level));
+        hudList.setLine(1, vformat(config.string(StringID::HUD_Score), tetris.getStats().score));
+        hudList.setLine(2, vformat(config.string(StringID::HUD_Level), tetris.getStats().level));
         if (config.showFps) {
-            hudList.setLine(4, vformat(config.string(StringID::HUD_FPS), fps.fps()));
+            hudList.setLine(3, vformat(config.string(StringID::HUD_FPS), fps.fps()));
         }
 
         glm::vec2 framebuffer = window.getFramebufferSize();

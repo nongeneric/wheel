@@ -112,7 +112,7 @@ void TetrisConfig::loadStrings() {
     }
 }
 
-bool HighscoreRecord::operator==(const HighscoreRecord &other) {
+bool HighscoreRecord::operator==(const HighscoreRecord &other) const {
     return name == other.name &&
            lines == other.lines &&
            score == other.score &&

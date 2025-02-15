@@ -1,7 +1,6 @@
 #include "Window.h"
 
-#include "vformat.h"
-
+#include <format>
 #include <stdexcept>
 #include <iostream>
 
@@ -12,7 +11,7 @@ std::vector<Monitor> getMonitors() {
     for (auto monitor = 0u; monitor < monitorsCount; ++monitor) {
         SDL_Rect rect;
         SDL_GetDisplayBounds(monitor, &rect);
-        auto name = vformat("%s (#%d)", SDL_GetDisplayName(monitor), monitor);
+        auto name = std::format("{} (#{})", SDL_GetDisplayName(monitor), monitor);
         res.push_back({monitor, name, rect.w, rect.h});
     }
     return res;
@@ -40,7 +39,7 @@ void glDebugCallbackFunction(
 
 Window::Window(std::string title, DisplayMode displayMode, unsigned width, unsigned height, unsigned monitor) {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC))
-        throw std::runtime_error(vformat("sdl2 init failed (%s)", SDL_GetError()));
+        throw std::runtime_error(std::format("sdl2 init failed ({})", SDL_GetError()));
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
@@ -74,7 +73,7 @@ Window::Window(std::string title, DisplayMode displayMode, unsigned width, unsig
         throw std::runtime_error("window creation failed");
 
     if (!SDL_GL_CreateContext(_window))
-        throw std::runtime_error(vformat("sdl2 failed to create OpenGL context (%s)", SDL_GetError()));
+        throw std::runtime_error(std::format("sdl2 failed to create OpenGL context ({})", SDL_GetError()));
 
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK)

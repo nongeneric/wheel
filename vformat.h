@@ -1,16 +1,9 @@
-#include <boost/format.hpp>
+#pragma once
 
-template <typename FormatType>
-void appendFormat(FormatType&) { }
+#include <format>
 
-template <typename FormatType, typename T, typename... Ts>
-void appendFormat(FormatType& fmt, T arg, Ts... args) {
-    appendFormat(fmt % arg, args...);
-}
-
-template <typename StrType, typename... Ts>
-std::string vformat(StrType formatString, Ts... ts) {
-    boost::format fmt(formatString);
-    appendFormat(fmt, ts...);
-    return str(fmt);
+template<typename... Args>
+inline auto vformat(std::string_view format, Args&&... args)
+{
+    return std::vformat(format, std::make_format_args(args...));
 }

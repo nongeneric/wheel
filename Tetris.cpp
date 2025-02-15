@@ -1,8 +1,8 @@
 #include "Tetris.h"
-#include "rstd.h"
 #include <assert.h>
 
 #include <vector>
+#include <algorithm>
 
 struct BBox {
     int x = 0;
@@ -181,13 +181,13 @@ class Tetris::impl {
 
     void paste(State const& piece, State& state, unsigned posX, unsigned posY) {
         for (size_t y = 0; y < piece.size(); ++y) {
-            rstd::copy(piece.at(y), begin(state.at(posY + y)) + posX);
+            std::ranges::copy(piece.at(y), begin(state.at(posY + y)) + posX);
         }
     }
 
     State patchPiece(State const& piece, PieceType::t pieceType) {
         State copy = piece;
-        rstd::reverse(copy); // pieces and the grid have different coord systems (y axis)
+        std::ranges::reverse(copy); // pieces and the grid have different coord systems (y axis)
         for (Line& line : copy) {
             for (CellInfo& cell : line) {
                 assert((unsigned)pieceType < PieceType::count);
@@ -245,11 +245,11 @@ class Tetris::impl {
 
     void kill() {
         std::for_each(begin(_staticGrid) + 4, end(_staticGrid), [](Line& line) {
-            bool hit = rstd::all_of(line, [](CellInfo cell) {
+            bool hit = std::ranges::all_of(line, [](CellInfo cell) {
                     return cell.state == CellState::Shown;
             });
             if (hit) {
-                rstd::fill(line, CellInfo { CellState::Dying });
+                std::ranges::fill(line, CellInfo { CellState::Dying });
             }
         });
     }
@@ -264,7 +264,7 @@ class Tetris::impl {
     void drop() {
         auto res = _dynamicGrid;
         std::copy(begin(res) + 1, end(res), begin(res));
-        rstd::fill(res.at(_vert - 1), CellInfo { CellState::Hidden });
+        std::ranges::fill(res.at(_vert - 1), CellInfo { CellState::Hidden });
 
         if (collision(res)) {
             stamp(_dynamicGrid);
@@ -281,7 +281,7 @@ class Tetris::impl {
         state.resize(height);
         for (Line& line : state) {
             line.resize(width);
-            rstd::fill(line, CellInfo { val });
+            std::ranges::fill(line, CellInfo { val });
         }
         return state;
     }
@@ -317,16 +317,16 @@ public:
     }
 
     int collect() {
-        auto middle = rstd::stable_partition(_staticGrid, [](Line const& line) {
-            return !rstd::all_of(line, [](CellInfo cell) {
+        auto middle = std::ranges::stable_partition(_staticGrid, [](Line const& line) {
+            return !std::ranges::all_of(line, [](CellInfo cell) {
                 return cell.state == CellState::Dying;
             });
         });
-        auto lines = std::distance(middle, end(_staticGrid));
+        auto lines = middle.size();
         updateStats(lines);
         Line emptyLine(_hor, { CellState::Shown });
         std::fill(begin(emptyLine) + 4, end(emptyLine) - 4, CellInfo { CellState::Hidden });
-        std::fill(middle, end(_staticGrid), emptyLine);
+        std::ranges::fill(middle, emptyLine);
         return lines;
     }
 

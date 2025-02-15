@@ -39,7 +39,7 @@ char withShift(int key) {
 TextEdit::TextEdit(Keyboard* keyboard, Text* text)
     : _keys(keyboard), _line(text, 0.06f), _cursor(0), _shown(false)
 {
-    _keys->onAdvance([=] (auto window, auto state) {
+    _keys->onAdvance([=, this] (auto window, auto state) {
         (void)window;
         if (state != State::NameInput)
             return;
