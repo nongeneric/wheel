@@ -3,6 +3,7 @@
 #include "../Text.h"
 
 #include <numeric>
+#include <algorithm>
 
 HighscoreScreen::HighscoreLine::HighscoreLine(Text *text, std::vector<std::string> columns) {
     this->columns = columns;

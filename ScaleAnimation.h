@@ -2,7 +2,7 @@
 
 #include <glm/glm.hpp>
 #include <GL/glew.h>
-#include "Time.h"
+#include "time_utils.h"
 #include <functional>
 
 class Mesh;

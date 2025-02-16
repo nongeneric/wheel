@@ -33,7 +33,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include "Time.h"
+#include "time_utils.h"
 #include <boost/lexical_cast.hpp>
 
 #include <functional>
@@ -578,8 +578,14 @@ public:
     }
 };
 
+void spinSleep(std::chrono::steady_clock::duration duration)
+{
+    auto past = std::chrono::steady_clock::now();
+    while (std::chrono::steady_clock::now() - past < duration) ;
+}
+
 class FpsLimiter {
-    using clock = chrono::steady_clock;
+    using clock = std::chrono::high_resolution_clock;
 
     clock::time_point _start{};
     clock::time_point _swap{};
@@ -588,22 +594,22 @@ class FpsLimiter {
 
 public:
     FpsLimiter(int cap) {
-        _target = chrono::duration_cast<clock::duration>(fseconds(1.f / cap));
+        _target = std::chrono::duration_cast<clock::duration>(fseconds(1.f / cap));
     }
 
     void startFrame() {
-        _start = chrono::high_resolution_clock::now();
+        _start = std::chrono::high_resolution_clock::now();
         if (_swap != clock::time_point()) {
             _swapDuration = _start - _swap;
         }
     }
 
     void wait() {
-        auto elapsed = chrono::high_resolution_clock::now() - _start;
+        auto elapsed = std::chrono::high_resolution_clock::now() - _start;
         if (elapsed < _target - _swapDuration) {
             spinSleep(_target - _swapDuration - elapsed);
         }
-        _swap = chrono::high_resolution_clock::now();
+        _swap = std::chrono::high_resolution_clock::now();
     }
 };
 
@@ -627,7 +633,7 @@ int desktop_main() {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glClearColor(0,0,0,0);
-    auto past = chrono::high_resolution_clock::now();
+    auto past = std::chrono::high_resolution_clock::now();
     fseconds elapsed{};
     fseconds wait{};
 
@@ -800,8 +806,8 @@ int desktop_main() {
         hscreenScoreLayout.updateFramebuffer(framebuffer);
         gameOverScreenLayout.updateFramebuffer(framebuffer);
 
-        auto now = chrono::high_resolution_clock::now();
-        fseconds dt = chrono::duration_cast<fseconds>(now - past);
+        auto now = std::chrono::high_resolution_clock::now();
+        fseconds dt = std::chrono::duration_cast<fseconds>(now - past);
         fps.advance(dt);
         fseconds realDt = dt;
         if (pm.paused())

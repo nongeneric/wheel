@@ -1,6 +1,6 @@
 #include "Text.h"
 
-#include <freetype2/ft2build.h>
+#include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
 
@@ -45,10 +45,12 @@ class Text::impl {
             return it->second;
         FT_GlyphSlot slot = face->glyph;
         auto error = FT_Load_Glyph(face, glyphIndex, FT_LOAD_DEFAULT);
-        assert(!error);
+        if (error)
+            throw std::runtime_error("Failed to load glyph");
 
         error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
-        assert(!error);
+        if (error)
+            throw std::runtime_error("Failed to render glyph");
 
         Bitmap glyph_bitmap = slot->bitmap.width > 0 && slot->bitmap.rows > 0
                 ? Bitmap(
@@ -73,7 +75,8 @@ public:
                         "LiberationSans-Regular.ttf",
                         0,
                         &face);
-            assert(!error);
+            if (error)
+                throw std::runtime_error("Failed to open font file");
         }
 
         auto error = FT_Set_Char_Size(
@@ -83,7 +86,8 @@ public:
                 96,
                 96
             );
-        assert(!error);
+        if (error)
+            throw std::runtime_error("Failed to set char size");
 
         if (framebuffer.x > _fbitmap.width() || framebuffer.y > _fbitmap.height())
             _fbitmap = Bitmap(framebuffer.x, framebuffer.y, 8);

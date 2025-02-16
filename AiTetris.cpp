@@ -15,6 +15,7 @@ PieceType::t mapPiece(int aiPiece) {
         case 6: return PieceType::O;
     }
     assert(false);
+    return {};
 }
 
 class AiTetris : public ITetris {

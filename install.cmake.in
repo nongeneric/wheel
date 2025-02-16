@@ -1,32 +1,9 @@
-include(GetPrerequisites)
-set(MINGW_ROOT /usr/i686-w64-mingw32/sys-root/mingw)
-set(gp_tool objdump)
+set(VCPKG_ROOT @VCPKG_INSTALLED_DIR@/@VCPKG_TARGET_TRIPLET@)
 
-set(BIN_DIR_DEPS
-    wheel.exe
-    config.xml
-    lang.en.xml
-    lang.ru.xml
-    cube.ply
-    LiberationSans-Regular.ttf
-)
-
-foreach (dep IN LISTS BIN_DIR_DEPS)
-    file(COPY "@CMAKE_BINARY_DIR@/${dep}" DESTINATION ${CMAKE_INSTALL_PREFIX})
-endforeach()
-
-set(SYSTEM_BIN
-    /usr/i686-w64-mingw32/sys-root/mingw/bin
-    /usr/i686-w64-mingw32/sys-root/mingw/lib
-)
-
-get_prerequisites("${CMAKE_INSTALL_PREFIX}/wheel.exe" prereq 0 1 "" "${MINGW_ROOT}/bin")
-get_prerequisites("${CMAKE_INSTALL_PREFIX}/wheel.exe" prereq 0 1 "" "${MINGW_ROOT}/lib")
-foreach(dll IN LISTS prereq)
-    foreach(sysdir IN LISTS SYSTEM_BIN)
-        set(path "${sysdir}/${dll}")
-        if(EXISTS ${path})
-            file(COPY ${path} DESTINATION ${CMAKE_INSTALL_PREFIX})
-        endif()
-    endforeach()
-endforeach()
+file(COPY "${VCPKG_ROOT}/bin/poly2tri.dll" DESTINATION ${CMAKE_INSTALL_PREFIX})
+file(COPY "${VCPKG_ROOT}/bin/minizip.dll" DESTINATION ${CMAKE_INSTALL_PREFIX})
+file(COPY "${VCPKG_ROOT}/bin/zlib1.dll" DESTINATION ${CMAKE_INSTALL_PREFIX})
+file(COPY "${VCPKG_ROOT}/bin/bz2.dll" DESTINATION ${CMAKE_INSTALL_PREFIX})
+file(COPY "${VCPKG_ROOT}/bin/libpng16.dll" DESTINATION ${CMAKE_INSTALL_PREFIX})
+file(COPY "${VCPKG_ROOT}/bin/brotlidec.dll" DESTINATION ${CMAKE_INSTALL_PREFIX})
+file(COPY "${VCPKG_ROOT}/bin/brotlicommon.dll" DESTINATION ${CMAKE_INSTALL_PREFIX})

@@ -1,35 +1,31 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required (VERSION 3.15)
 project(wheel)
 
-set(wheel_VERSION "0.1.2")
+set(wheel_VERSION "0.2.0")
 
 set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(Boost_USE_MULTITHREADED      ON)
-set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost COMPONENTS system filesystem thread chrono REQUIRED)
-include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
-link_directories(${Boost_LIBRARY_DIRS})
-
-if(DEFINED CMAKE_RELEASE)
-    set(CMAKE_CXX_FLAGS "-O2 ${CMAKE_CXX_FLAGS}")
-    if(WIN32)
-        set(CMAKE_CXX_FLAGS "-Wl,--subsystem,windows ${CMAKE_CXX_FLAGS}")
-    endif()
-else()
-    add_definitions(-DDEBUG)
-    set(CMAKE_CXX_FLAGS "-ggdb -O0 ${CMAKE_CXX_FLAGS}")
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -march=x86-64-v3 ${CMAKE_CXX_FLAGS}")
 
-find_package(PkgConfig REQUIRED)
-pkg_search_module(FREETYPE2 REQUIRED freetype2)
+add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Werror>)
+add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wall>)
+add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-march=x86-64-v3>)
+add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,MSVC>:-mwindows>)
 
-if(WIN32)
-    include_directories(SYSTEM /usr/i686-w64-mingw32/sys-root/mingw/include/freetype2)
-else()
-    include_directories(SYSTEM ${FREETYPE2_INCLUDE_DIRS})
-endif()
+#set(CMAKE_CXX_FLAGS "-fsanitize=address -fsanitize=undefined ${CMAKE_CXX_FLAGS}")
+
+find_package(boost_system REQUIRED CONFIG)
+find_package(Freetype REQUIRED)
+find_package(GLEW REQUIRED)
+find_package(SDL2 REQUIRED)
+find_package(OpenGL REQUIRED)
+find_package(assimp CONFIG REQUIRED)
+find_package(glm REQUIRED)
+find_package(pugixml REQUIRED)
 
 include_directories(${PROJECT_SOURCE_DIR})
 
@@ -64,7 +60,6 @@ set(SRC_LIST
     Bitmap.cpp
     AiTetris.cpp
     Tetris.cpp
-    Time.cpp
     Program.cpp
     Window.cpp
     Text.cpp
@@ -73,44 +68,36 @@ set(SRC_LIST
     simulator.cpp
 )
 
-if(WIN32)
-    set(LIB_DEPS
-        glew32
-        mingw32
-        SDL2main
-        SDL2
-        opengl32
-        z
-    )
-else()
-    set(LIB_DEPS
-        GLEW
-        GL
-        SDL2
-        X11
-        Xxf86vm
-        Xrandr
-        Xi
-        pthread
-        bz2
-    )
-endif()
-
 add_library(wheel-lib STATIC ${SRC_LIST})
 target_link_libraries(wheel-lib
-    assimp
-    freetype
-    ${LIB_DEPS}
-    ${Boost_LIBRARIES}
+    assimp::assimp
+    Freetype::Freetype
+    GLEW::GLEW
+    SDL2::SDL2
+    SDL2::SDL2main
+    OpenGL::GL
+    Boost::system
+    glm::glm
+    pugixml::pugixml
 )
 
-add_executable(wheel entry.cpp)
+add_executable(wheel WIN32 entry.cpp)
 target_link_libraries(wheel wheel-lib)
 
 if(NOT WIN32)
     add_executable(tests tests.cpp)
-    target_link_libraries(tests wheel-lib gtest pthread ${Boost_LIBRARIES})
+    target_link_libraries(tests wheel-lib gtest pthread)
 endif()
+
+install(FILES
+    config.xml
+    lang.en.xml
+    lang.ru.xml
+    cube.ply
+    LiberationSans-Regular.ttf
+    DESTINATION /)
+install(TARGETS wheel DESTINATION /)
+install(FILES $<TARGET_RUNTIME_DLLS:wheel> DESTINATION /)
 
 if(WIN32)
     configure_file (
@@ -122,4 +109,6 @@ if(WIN32)
     set(CPACK_PACKAGE_FILE_NAME "wheel-${wheel_VERSION}-win32")
     set(CPACK_GENERATOR "ZIP")
     include(CPack)
+else()
+    install(TARGETS wheel DESTINATION bin)
 endif()
