@@ -169,7 +169,7 @@ inline char getPieceName(int piece) {
     return pieceNames.at(piece);
 };
 
-inline int getPieceIdx(char name) {
+inline uint8_t getPieceIdx(char name) {
     auto i = pieceNames.find(name);
     assert(i != std::string::npos);
     return i;

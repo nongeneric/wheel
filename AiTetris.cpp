@@ -27,7 +27,6 @@ class AiTetris : public ITetris {
     size_t _curMove = 0;
     Random<int> _rnd{0, 6};
     TetrisStatistics _stats;
-    int _lastElimLines = 0;
 
     void setPiece(Move move, PieceInfo info, CellState state, PieceType::t piece = PieceType::O) {
         for (int r = 0; r < 4; ++r) {
@@ -36,6 +35,7 @@ class AiTetris : public ITetris {
                 if ((*info.grid)(r, c) && 0 <= gpos.x && gpos.x < 10 &&
                     0 <= gpos.y && gpos.y < 20) {
                     auto& cell = _state.at(gpos.y).at(gpos.x);
+                    assert((state == CellState::Shown) ^ (cell.state == CellState::Shown));
                     cell.state = state;
                     cell.piece = piece;
                 }
@@ -48,8 +48,6 @@ class AiTetris : public ITetris {
             auto move = _moves.at(_curMove - 1);
             auto info = _sim.getPiece(move.piece, move.rot);
             setPiece(move, info, CellState::Hidden);
-        } else {
-            eliminateState();
         }
         auto move = _moves.at(_curMove);
         auto info = _sim.getPiece(move.piece, move.rot);
@@ -66,17 +64,6 @@ class AiTetris : public ITetris {
         }
     }
 
-    void eliminateState() {
-        int dstR = 0;
-        for (int srcR = 0; srcR < 20; ++srcR) {
-            bool isCompleteLine = std::ranges::all_of(_state.at(srcR), [](CellInfo const& info) {
-                return info.state == CellState::Dying;
-            });
-            if (!isCompleteLine) {
-                _state.at(dstR++) = _state.at(srcR);
-            }
-        }
-    }
 
 public:
     void setInitialLevel(int /*level*/) override {}
@@ -123,7 +110,6 @@ public:
                 _stats.lines += lines;
                 _curPiece = _nextPiece;
                 _nextPiece = _rnd();
-                _lastElimLines = lines;
             }
 
             auto move = _sim.getBestMove(_curPiece, _nextPiece);
@@ -139,7 +125,19 @@ public:
     }
 
     int collect() override {
-        return _lastElimLines;
+        int lines = 0;
+        int dstR = 0;
+        for (int srcR = 0; srcR < 20; ++srcR) {
+            bool isCompleteLine = std::ranges::all_of(_state.at(srcR), [](CellInfo const& info) {
+                return info.state == CellState::Dying;
+            });
+            if (!isCompleteLine) {
+                _state.at(dstR++) = _state.at(srcR);
+            } else {
+                lines++;
+            }
+        }
+        return lines;
     }
 
     TetrisStatistics getStats() const override {

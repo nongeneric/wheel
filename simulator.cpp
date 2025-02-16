@@ -48,11 +48,10 @@ void Simulator::visit(int piece, Pos pos, int rot) {
         case 1: cell.allowed[0] = true; break;
         case 2: {
             int other = wrap(rot + 1, 2);
-            cell.allowed[other] = tryPlacing<true>(piece, 0, pos);
+            cell.allowed[other] = tryPlacing<true>(piece, other, pos);
             break;
         }
         case 4: {
-            // already visited
             int right = wrap(rot + 1, 4);
             int left = wrap(rot - 1, 4);
             if (!cell.allowed[right])
@@ -206,7 +205,7 @@ Simulator::Simulator() {
 }
 
 bool Simulator::analyze(int piece) {
-    assert(0 <= piece && piece <= 7);
+    assert(0 <= piece && piece <= 6);
     for (auto& r : _cells) {
         for (auto& c : r) {
             c = {};
@@ -283,6 +282,11 @@ Weights& Simulator::weights() {
 }
 
 void Simulator::imprint(PackedGrid& grid, PieceInfo const& info, Pos pos) {
+    assert([&] {
+        auto copy = grid;
+        erase(grid, info, pos);
+        return copy == grid;
+    }());
     grid.setInt(pos.y, grid.toInt(pos.y) | (info.grid->toInt(0) >> (pos.x + 1)));
 }
 

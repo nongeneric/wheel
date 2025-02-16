@@ -14,7 +14,6 @@ endif()
 add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Werror>)
 add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wall>)
 add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-march=x86-64-v3>)
-add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,MSVC>:-mwindows>)
 
 #set(CMAKE_CXX_FLAGS "-fsanitize=address -fsanitize=undefined ${CMAKE_CXX_FLAGS}")
 
