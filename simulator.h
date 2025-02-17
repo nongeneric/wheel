@@ -11,6 +11,12 @@
 
 using Weights = std::array<float, 3>;
 
+namespace Piece {
+    enum t : uint8_t {
+        J, L, S, Z, T, I, O, count
+    };
+}
+
 template <int Rows, int RowOffset, int ColumnOffset>
 struct PackedGridImpl {
     std::array<uint16_t, Rows> rows;
@@ -46,6 +52,12 @@ struct PackedPiece : PackedGridImpl<4, 0, 0> {
     size_t size1() const { return 4; }
 };
 
+constexpr int gFirstRow = 2;
+constexpr int gLastRow = 21;
+constexpr int gWallSize = 3;
+constexpr int gBoardWidth = 10;
+constexpr int gBoardHeight = 20;
+
 /*
      0: xxx..........xxx < invisible
      1: xxx..........xxx < invisible
@@ -75,13 +87,13 @@ struct Pos {
 };
 
 struct PieceInfo {
-    uint8_t piece = 0;
+    Piece::t piece{};
     uint8_t rot = 0;
     PackedPiece const* grid = nullptr;
 };
 
 struct Move {
-    uint8_t piece : 6;
+    Piece::t piece : 6;
     uint8_t rot : 2;
     uint8_t x;
     uint8_t y;
@@ -105,17 +117,19 @@ struct Move {
         i >>= 8;
         rot = i;
         i >>= 2;
-        piece = i;
+        piece = static_cast<Piece::t>(i);
     }
 };
+
+static_assert(sizeof(Move) == 3);
 
 class Simulator {
     struct CellInfo {
         std::bitset<4> allowed{};
     };
 
-    std::array<PackedPiece[4], 7> _pieces;
-    std::array<char, 7> _pieceRots;
+    std::array<PackedPiece[4], Piece::count> _pieces;
+    std::array<char, Piece::count> _pieceRots;
     std::array<std::array<CellInfo, 10>, 20> _cells;
     PackedGrid _grid;
     std::vector<Move> _moves;
@@ -124,24 +138,27 @@ class Simulator {
 
     int wrap(int i, int n);
     PieceInfo rotate(PieceInfo info, bool clockwise);
-    void visit(int piece, Pos pos, int rot);
+    void visit(Piece::t piece, Pos pos, int rot);
     float getQuality(PackedGrid const& board);
-    float getQuality(std::optional<char> piece, std::optional<char> nextPiece, PackedGrid grid, int level);
+    float getQuality(std::optional<Piece::t> piece,
+                     std::optional<Piece::t> nextPiece,
+                     PackedGrid grid,
+                     int level);
 
 public:
     Simulator();
 
-    bool analyze(int piece);
-    std::optional<Move> getBestMove(int curPiece, std::optional<int> nextPiece);
+    bool analyze(Piece::t piece);
+    std::optional<Move> getBestMove(Piece::t curPiece, std::optional<Piece::t> nextPiece);
     PackedGrid& grid();
     Weights& weights();
     void imprint(PackedGrid& grid, PieceInfo const& info, Pos pos);
     void erase(PackedGrid& grid, PieceInfo const& info, Pos pos);
-    PieceInfo getPiece(uint8_t piece, uint8_t rot) const;
+    PieceInfo getPiece(Piece::t piece, uint8_t rot) const;
     std::vector<Move> interpolate(Move const& move);
 
     template <bool AllowClip>
-    bool tryPlacing(int piece, int rot, Pos pos) {
+    bool tryPlacing(Piece::t piece, int rot, Pos pos) {
         auto info = getPiece(piece, rot);
         auto pieceInt = info.grid->toInt(0) >> (pos.x + 1);
         auto gridInt = _grid.toInt(pos.y);
@@ -155,7 +172,7 @@ public:
 
 struct Heuristics {
     uint64_t filledTotal{};
-    std::array<char, 10> columnHeights{};
+    std::array<char, gBoardWidth> columnHeights{};
 
     explicit Heuristics(PackedGrid const& grid);
     float calcCompactness();
@@ -165,14 +182,14 @@ struct Heuristics {
 
 inline std::string pieceNames = "JLSZTIO";
 
-inline char getPieceName(int piece) {
+inline char getPieceName(Piece::t piece) {
     return pieceNames.at(piece);
 };
 
-inline uint8_t getPieceIdx(char name) {
+inline Piece::t getPieceIdx(char name) {
     auto i = pieceNames.find(name);
     assert(i != std::string::npos);
-    return i;
+    return static_cast<Piece::t>(i);
 }
 
 std::pair<PackedGrid, int> eliminate(PackedGrid const& grid);

@@ -153,20 +153,15 @@ std::vector<MeshWrapper> genMeshes() {
     return meshes;
 }
 
+auto makePieceGenerator() {
+    return Random(PieceType::t{}, PieceType::t(PieceType::count - 1));
+}
+
 float speedCurve(int level) {
     if (level <= 15)
         return 0.05333f * level;
     return 0.65f + 0.01f * level;
 }
-
-class Generator {
-    Random<unsigned> _random;
-public:
-    Generator() : _random(0, PieceType::count - 1) { }
-    PieceType::t operator()() {
-        return static_cast<PieceType::t>(_random());
-    }
-};
 
 class FpsCounter {
     fseconds _elapsed{};
@@ -624,7 +619,8 @@ int desktop_main() {
     PauseManager pm(&keys);
     MainProgramInfo program = createMainProgram();
     std::vector<MeshWrapper> meshes = genMeshes();
-    auto tetris = makeTetris(g_TetrisHor, g_TetrisVert, Generator());
+    auto tetris = makeTetris(
+        g_TetrisHor, g_TetrisVert, makePieceGenerator());
     tetris->setInitialLevel(config.initialLevel);
     Camera camera;
     CameraController camController(&window, &camera);
@@ -721,7 +717,7 @@ int desktop_main() {
     });
     menu.onValueChanged(mainMenuStructure.restart, [&]() {
         wait = fseconds();
-        tetris = makeTetris(g_TetrisHor, g_TetrisVert, Generator());
+        tetris = makeTetris(g_TetrisHor, g_TetrisVert, makePieceGenerator());
         tetris->setInitialLevel(config.initialLevel);
         stateManager.goTo(State::Game);
     });

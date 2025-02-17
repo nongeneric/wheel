@@ -13,9 +13,9 @@ using namespace std::string_literals;
 
 std::pair<PackedGrid, int> eliminate(PackedGrid const& grid) {
     auto res = grid;
-    int destRow = 21;
+    int destRow = gLastRow;
     int lines = 0;
-    for (auto r = 21; r >= 1; --r) {
+    for (auto r = gLastRow; r >= gFirstRow; --r) {
         if (grid.rows[r] != uint16_t(-1)) {
             res.rows[destRow--] = grid.rows[r];
         } else {
@@ -36,7 +36,7 @@ int Simulator::wrap(int i, int n) {
     return ((i % n) + n) % n;
 }
 
-void Simulator::visit(int piece, Pos pos, int rot) {
+void Simulator::visit(Piece::t piece, Pos pos, int rot) {
     if (!tryPlacing<true>(piece, rot, pos))
         return;
     auto& cell = _cells.at(pos.y).at(pos.x);
@@ -70,7 +70,7 @@ void Simulator::visit(int piece, Pos pos, int rot) {
             visit(piece, {char(pos.x + 1), pos.y}, r);
             visit(piece, {pos.x, char(pos.y + 1)}, r);
 
-            if (pos.y == 19 || (pos.y < 19 && !_cells.at(pos.y + 1).at(pos.x).allowed[r])) {
+            if (pos.y == gBoardHeight - 1 || (pos.y < gBoardHeight - 1 && !_cells.at(pos.y + 1).at(pos.x).allowed[r])) {
                 if (tryPlacing<false>(piece, r, pos))
                     _moves.emplace_back(piece, r, pos.x, pos.y);
             }
@@ -204,8 +204,7 @@ Simulator::Simulator() {
     };
 }
 
-bool Simulator::analyze(int piece) {
-    assert(0 <= piece && piece <= 6);
+bool Simulator::analyze(Piece::t piece) {
     for (auto& r : _cells) {
         for (auto& c : r) {
             c = {};
@@ -232,7 +231,10 @@ float Simulator::getQuality(PackedGrid const& board) {
     return quality;
 }
 
-float Simulator::getQuality(std::optional<char> piece, std::optional<char> nextPiece, PackedGrid grid, int level) {
+float Simulator::getQuality(std::optional<Piece::t> piece,
+                            std::optional<Piece::t> nextPiece,
+                            PackedGrid grid,
+                            int level) {
     if (level == 3)
         return getQuality(grid);
     std::string pieces;
@@ -246,7 +248,7 @@ float Simulator::getQuality(std::optional<char> piece, std::optional<char> nextP
     for (char p : pieces) {
         float q = 0;
         _grid = grid;
-        if (!analyze(p))
+        if (!analyze(static_cast<Piece::t>(p)))
             continue;
         auto moves = std::move(_moves);
         for (auto m : moves) {
@@ -265,7 +267,8 @@ float Simulator::getQuality(std::optional<char> piece, std::optional<char> nextP
     return resQ;
 }
 
-std::optional<Move> Simulator::getBestMove(int curPiece, std::optional<int> nextPiece) {
+std::optional<Move> Simulator::getBestMove(Piece::t curPiece,
+                                           std::optional<Piece::t> nextPiece) {
     auto copy = _grid;
     _bestMove.reset();
     getQuality(curPiece, nextPiece, _grid, 0);
@@ -297,7 +300,7 @@ void Simulator::erase(PackedGrid& grid, PieceInfo const& info, Pos pos) {
     grid.setInt(pos.y, u64grid);
 }
 
-PieceInfo Simulator::getPiece(uint8_t piece, uint8_t rot) const {
+PieceInfo Simulator::getPiece(Piece::t piece, uint8_t rot) const {
     assert(rot < _pieceRots[piece]);
     return {piece, rot, &_pieces[piece][rot]};
 }
@@ -320,8 +323,8 @@ std::vector<Move> Simulator::interpolate(Move const& move) {
     std::deque<PiecePlacement> vertices;
     std::unordered_map<PiecePlacement*, std::vector<Edge>> edges;
 
-    for (uint8_t r = 0; r < 20; ++r) {
-        for (uint8_t c = 0; c < 10; ++c) {
+    for (uint8_t r = 0; r < gBoardHeight; ++r) {
+        for (uint8_t c = 0; c < gBoardWidth; ++c) {
             for (uint8_t rot = 0; rot < 4; ++rot) {
                 if (!_cells[r][c].allowed[rot])
                     continue;
@@ -331,8 +334,8 @@ std::vector<Move> Simulator::interpolate(Move const& move) {
         }
     }
     // connect adjacent rots inside a single cell
-    for (int r = 0; r < 20; ++r) {
-        for (int c = 0; c < 10; ++c) {
+    for (int r = 0; r < gBoardHeight; ++r) {
+        for (int c = 0; c < gBoardWidth; ++c) {
             int rotNum = _pieceRots[move.piece];
             for (int rot = 0; rot < rotNum; ++rot) {
                 int nextRot = wrap(rot + 1, rotNum);
@@ -349,10 +352,10 @@ std::vector<Move> Simulator::interpolate(Move const& move) {
         if (pp.c > 0 && _cells[pp.r][pp.c - 1].allowed[pp.rot]) { // left
             edges[&pp].push_back({ppmap.at({pp.r, pp.c - 1, pp.rot}), 1});
         }
-        if (pp.c < 9 && _cells[pp.r][pp.c + 1].allowed[pp.rot]) { // right
+        if (pp.c < gBoardWidth - 1 && _cells[pp.r][pp.c + 1].allowed[pp.rot]) { // right
             edges[&pp].push_back({ppmap.at({pp.r, pp.c + 1, pp.rot}), 1});
         }
-        if (pp.r < 19 && _cells[pp.r + 1][pp.c].allowed[pp.rot]) { // down
+        if (pp.r < gBoardHeight - 1 && _cells[pp.r + 1][pp.c].allowed[pp.rot]) { // down
             edges[&pp].push_back({ppmap.at({pp.r + 1, pp.c, pp.rot}), 1});
         }
     }
@@ -398,21 +401,21 @@ std::vector<Move> Simulator::interpolate(Move const& move) {
 Heuristics::Heuristics(PackedGrid const& grid) {
     uint64_t mask = 0;
     uint64_t columnTotals = 0;
-    for (int r = 2; r <= 21; ++r) {
+    for (int r = gFirstRow; r <= gLastRow; ++r) {
         auto row = grid.rows[r];
         mask |= row;
         columnTotals += _pdep_u64(mask >> 3, 0x210842108421ull);
     }
 
-    for (int i = 9; i >= 0; --i) {
+    for (int i = gBoardWidth - 1; i >= 0; --i) {
         columnHeights[i] = columnTotals & 0b11111;
         columnTotals >>= 5;
     }
 
-    for (int r = 2; r < 22; r += 4) {
+    for (int r = gFirstRow; r <= gLastRow; r += 4) {
         filledTotal += _mm_popcnt_u64(grid.toInt(r));
     }
-    filledTotal -= 3 * 2 * 20; // ignore walls
+    filledTotal -= gWallSize * 2 * gBoardHeight;
 }
 
 float Heuristics::calcCompactness() {
@@ -426,7 +429,7 @@ float Heuristics::calcCompactness() {
 }
 
 float Heuristics::calcMaxHeight(PackedGrid const& grid) {
-    for (int r = 2; r <= 21; ++r) {
+    for (int r = gFirstRow; r <= gLastRow; ++r) {
         if (grid.rows[r] != 0xe007)
             return (r - 2) / 20.;
     }
@@ -435,7 +438,7 @@ float Heuristics::calcMaxHeight(PackedGrid const& grid) {
 
 float Heuristics::calcDistortion() {
     int diffs = 0;
-    for (int c = 1; c < 10; ++c) {
+    for (int c = 1; c < gBoardWidth; ++c) {
         diffs += std::abs(columnHeights[c] - columnHeights[c - 1]);
     }
     auto const maxDiffs = 20 * 9;

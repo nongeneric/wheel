@@ -4,28 +4,27 @@
 
 #include <algorithm>
 
-PieceType::t mapPiece(int aiPiece) {
+PieceType::t mapPiece(Piece::t aiPiece) {
     switch (aiPiece) {
-        case 0: return PieceType::J;
-        case 1: return PieceType::L;
-        case 2: return PieceType::S;
-        case 3: return PieceType::Z;
-        case 4: return PieceType::T;
-        case 5: return PieceType::I;
-        case 6: return PieceType::O;
+        case Piece::J: return PieceType::J;
+        case Piece::L: return PieceType::L;
+        case Piece::S: return PieceType::S;
+        case Piece::Z: return PieceType::Z;
+        case Piece::T: return PieceType::T;
+        case Piece::I: return PieceType::I;
+        case Piece::O: return PieceType::O;
+        default: assert(false); return {};
     }
-    assert(false);
-    return {};
 }
 
 class AiTetris : public ITetris {
     Simulator _sim;
-    int _curPiece{};
-    int _nextPiece{};
-    std::array<std::array<CellInfo, 10>, 20> _state{};
+    Piece::t _curPiece{};
+    Piece::t _nextPiece{};
+    std::array<std::array<CellInfo, gBoardWidth>, gBoardHeight> _state{};
     std::vector<Move> _moves;
     size_t _curMove = 0;
-    Random<int> _rnd{0, 6};
+    Random<Piece::t> _rnd{Piece::t{}, Piece::t(Piece::count - 1)};
     TetrisStatistics _stats;
 
     void setPiece(Move move, PieceInfo info, CellState state, PieceType::t piece = PieceType::O) {
@@ -119,6 +118,7 @@ public:
             }
             _sim.analyze(move->piece);
             _moves = _sim.interpolate(*move);
+            _moves.push_back((_moves.back()));
             _curMove = 0;
         }
         return _curMove == 0;
