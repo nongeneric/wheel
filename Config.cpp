@@ -31,7 +31,7 @@ void writeHighscores(std::vector<HighscoreRecord> const& vec, std::string path, 
     }
 }
 
-std::string TetrisConfig::string(StringID id) {
+std::string TetrisConfig::string(StringID id) const {
     auto it = _strings.find(id);
     if (it != end(_strings))
         return it->second;
@@ -67,6 +67,7 @@ void TetrisConfig::load() {
     screenHeight = pt.get("tetris.resolution.<xmlattr>.height", 600);
     showFps = pt.get("tetris.<xmlattr>.showFps", false);
     initialLevel = pt.get("tetris.<xmlattr>.initialLevel", 0);
+    aiPrefill = pt.get("tetris.<xmlattr>.aiPrefill", 0);
     rumble = pt.get("tetris.<xmlattr>.rumble", true);
     language = pt.get("tetris.<xmlattr>.language", "en");
     fpsCap = pt.get("tetris.<xmlattr>.fpsCap", 300);
@@ -84,6 +85,7 @@ void TetrisConfig::save() {
     pt.put("tetris.resolution.<xmlattr>.height", screenHeight);
     pt.put("tetris.<xmlattr>.showFps", showFps);
     pt.put("tetris.<xmlattr>.initialLevel", initialLevel);
+    pt.put("tetris.<xmlattr>.aiPrefill", aiPrefill);
     pt.put("tetris.<xmlattr>.rumble", rumble);
     pt.put("tetris.<xmlattr>.language", language);
     pt.put("tetris.<xmlattr>.fpsCap", fpsCap);

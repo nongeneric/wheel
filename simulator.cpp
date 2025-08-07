@@ -79,7 +79,7 @@ void Simulator::visit(Piece::t piece, Pos pos, int rot) {
 }
 
 Simulator::Simulator() {
-    _weights = {0.33333334, 0.5833333, 0.183333336};
+    _weights = {0.703125, 0.25, 0.046875};
     _pieceRots = {4, 4, 2, 2, 4, 2, 1};
 
     _pieces[0][0].rows = {

@@ -311,8 +311,16 @@ class Tetris : public ITetris {
     }
 public:
     Tetris(int hor, int vert, std::function<PieceType::t()> generator)
-        : _hor(hor + 8), _vert(vert + 8), _generator(generator), _initialLevel(0) {
-        reset();
+        : _hor(hor + 8), _vert(vert + 8), _generator(generator), _initialLevel(0)
+    {
+        _nothingFalling = true;
+        _nextPiece = _generator();
+        _piece = _nextPiece;
+        State inner = createState(_hor - 8, _vert - 4, CellState::Hidden);
+        _staticGrid = createState(_hor, _vert, CellState::Shown);
+        paste(inner, _staticGrid, 4, 4);
+        _dynamicGrid = createState(_hor, _vert, CellState::Hidden);
+        _stats = TetrisStatistics();
     }
 
     int collect() override {
@@ -374,7 +382,10 @@ public:
     }
 
     TetrisStatistics getStats() const override {
-        return _stats;
+        TetrisStatistics stats = _stats;
+        stats.piece = _piece;
+        stats.nextPiece = _nextPiece;
+        return stats;
     }
 
     CellInfo getNextPieceState(int x, int y) const override {
@@ -386,23 +397,12 @@ public:
         return state.at(y).at(x);
     }
 
-    void resetGameOver() override {
-        _stats.gameOver = false;
-    }
-
-    void reset() override {
-        _nothingFalling = true;
-        _nextPiece = _generator();
-        _piece = _nextPiece;
-        State inner = createState(_hor - 8, _vert - 4, CellState::Hidden);
-        _staticGrid = createState(_hor, _vert, CellState::Shown);
-        paste(inner, _staticGrid, 4, 4);
-        _dynamicGrid = createState(_hor, _vert, CellState::Hidden);
-        _stats = TetrisStatistics();
-    }
-
     void setInitialLevel(int level) override {
         _initialLevel = level;
+    }
+
+    void eraseFallingPiece() override {
+        _dynamicGrid = createState(_hor, _vert, CellState::Hidden);
     }
 };
 

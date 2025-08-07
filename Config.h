@@ -22,13 +22,15 @@ struct HighscoreRecord {
     X(Menu_Yes) \
     X(Menu_No) \
     X(OptionsMenu_Back) \
-    X(OptionsMenu_Monitor) \
+    X(OptionsMenu_Display) \
     X(OptionsMenu_Resolution) \
     X(OptionsMenu_DisplayMode) \
     X(OptionsMenu_DisplayMode_Fullscreen) \
     X(OptionsMenu_DisplayMode_Windowed) \
     X(OptionsMenu_DisplayMode_Borderless) \
     X(OptionsMenu_InitialLevel) \
+    X(OptionsMenu_AiPrefill) \
+    X(OptionsMenu_CopyPrefill) \
     X(OptionsMenu_Rumble) \
     X(HUD_Lines) \
     X(HUD_Score) \
@@ -63,12 +65,13 @@ struct TetrisConfig {
     unsigned screenHeight;
     bool showFps;
     unsigned initialLevel;
+    int aiPrefill;
     bool rumble;
     int fpsCap;
     std::string language;
     std::vector<HighscoreRecord> highscoreLines;
     std::vector<HighscoreRecord> highscoreScore;
-    std::string string(StringID id);
+    std::string string(StringID id) const;
     void load();
     void save();
 private:

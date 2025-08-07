@@ -32,7 +32,6 @@ file(COPY config.xml DESTINATION .)
 file(COPY cube.ply DESTINATION .)
 file(COPY LiberationSans-Regular.ttf DESTINATION .)
 file(COPY lang.en.xml DESTINATION .)
-file(COPY lang.ru.xml DESTINATION .)
 
 add_definitions(-DGLM_FORCE_CTOR_INIT)
 add_definitions(-DGLM_FORCE_CXX11)

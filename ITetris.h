@@ -23,6 +23,8 @@ struct TetrisStatistics {
     unsigned lines = 0;
     unsigned score = 0;
     unsigned level = 0;
+    PieceType::t piece = {};
+    PieceType::t nextPiece = {};
     bool gameOver = false;
 };
 
@@ -35,8 +37,7 @@ struct ITetris {
     virtual void moveLeft() = 0;
     virtual void rotate(bool clockwise) = 0;
     virtual int collect() = 0;
-    virtual void reset() = 0;
-    virtual void resetGameOver() = 0;
     virtual TetrisStatistics getStats() const = 0;
+    virtual void eraseFallingPiece() = 0;
     virtual ~ITetris() = default;
 };

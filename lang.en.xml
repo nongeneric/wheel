@@ -13,8 +13,10 @@
     <string id="OptionsMenu_DisplayMode_Windowed" value="Windowed"/>
     <string id="OptionsMenu_DisplayMode_Borderless" value="Borderless"/>
     <string id="OptionsMenu_InitialLevel" value="Initial Level"/>
+    <string id="OptionsMenu_AiPrefill" value="AI Prefill"/>
+    <string id="OptionsMenu_CopyPrefill" value="Copy current field"/>
     <string id="OptionsMenu_Rumble" value="Rumble"/>
-    <string id="OptionsMenu_Monitor" value="Monitor"/>
+    <string id="OptionsMenu_Display" value="Display"/>
     <string id="Menu_Yes" value="Yes"/>
     <string id="Menu_No" value="No"/>
     <string id="HUD_Lines" value="Lines: {}"/>

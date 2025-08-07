@@ -4,15 +4,16 @@
 
 #include <algorithm>
 
-PieceType::t mapPiece(Piece::t aiPiece) {
+template <typename To, typename From>
+To mapPiece(From aiPiece) {
     switch (aiPiece) {
-        case Piece::J: return PieceType::J;
-        case Piece::L: return PieceType::L;
-        case Piece::S: return PieceType::S;
-        case Piece::Z: return PieceType::Z;
-        case Piece::T: return PieceType::T;
-        case Piece::I: return PieceType::I;
-        case Piece::O: return PieceType::O;
+        case From::J: return To::J;
+        case From::L: return To::L;
+        case From::S: return To::S;
+        case From::Z: return To::Z;
+        case From::T: return To::T;
+        case From::I: return To::I;
+        case From::O: return To::O;
         default: assert(false); return {};
     }
 }
@@ -50,7 +51,7 @@ class AiTetris : public ITetris {
         }
         auto move = _moves.at(_curMove);
         auto info = _sim.getPiece(move.piece, move.rot);
-        setPiece(move, info, CellState::Shown, mapPiece(move.piece));
+        setPiece(move, info, CellState::Shown, mapPiece<PieceType::t, Piece::t>(move.piece));
         if (_curMove == _moves.size() - 1) {
             for (auto& r : _state) {
                 bool isCompleteLine = std::ranges::all_of(r, [](CellInfo const& info) {
@@ -73,13 +74,45 @@ public:
         _stats.level = std::max(_stats.level - 1, 1u);
     }
     void rotate(bool /*clockwise*/) override {}
-    void reset() override {}
-    void resetGameOver() override {}
+    void eraseFallingPiece() override {}
 
-    AiTetris() {
+    AiTetris(ITetris* source, int prefill) {
+        assert(prefill < gBoardHeight);
+
         _curPiece = _rnd();
         _nextPiece = _rnd();
         _stats.level = 26;
+
+        if (prefill != -1) {
+            Random<int> rnd(0, 1);
+            for (int r = 0; r < prefill; ++r) {
+                for (int c = 0; c < gBoardWidth; ++c) {
+                    if (rnd()) {
+                        _sim.grid().set(19 - r, c);
+                        _state[r][c].state = CellState::Shown;
+                    }
+                }
+            }
+            return;
+        }
+
+        if (!source || dynamic_cast<AiTetris const*>(source))
+            return; // don't copy from another AiTetris
+
+        source->eraseFallingPiece();
+        auto sourceStats = source->getStats();
+        _curPiece = mapPiece<Piece::t, PieceType::t>(sourceStats.piece);
+        _nextPiece = mapPiece<Piece::t, PieceType::t>(sourceStats.nextPiece);
+        _stats.level = sourceStats.level;
+
+        for (int r = 0; r < gBoardHeight; ++r) {
+            for (int c = 0; c < gBoardWidth; ++c) {
+                if (source->getState(c, r).state == CellState::Shown) {
+                    _sim.grid().set(19 - r, c);
+                    _state[r][c].state = CellState::Shown;
+                }
+            }
+        }
     }
 
     CellInfo getState(int x, int y) const override {
@@ -90,7 +123,7 @@ public:
         auto info = _sim.getPiece(_nextPiece, 0);
         return CellInfo((*info.grid)(3 - y, x) ? CellState::Shown
                                                : CellState::Hidden,
-                        mapPiece(_nextPiece));
+                        mapPiece<PieceType::t, Piece::t>(_nextPiece));
     }
 
     bool step() override {
@@ -145,6 +178,6 @@ public:
     }
 };
 
-std::unique_ptr<ITetris> makeAiTetris() {
-    return std::make_unique<AiTetris>();
+std::unique_ptr<ITetris> makeAiTetris(ITetris& source, int prefill) {
+    return std::make_unique<AiTetris>(&source, prefill);
 }

@@ -5,4 +5,4 @@
 #include <memory>
 #include <functional>
 
-std::unique_ptr<ITetris> makeAiTetris();
+std::unique_ptr<ITetris> makeAiTetris(ITetris& source, int prefill);

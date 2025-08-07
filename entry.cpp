@@ -258,6 +258,7 @@ MainMenuStructure initMainMenu(Menu& menu, Text& text, TetrisConfig& config) {
 struct OptionsMenuStructure {
     MenuLeaf* back;
     MenuLeaf* initialSpeed;
+    MenuLeaf* aiPrefill;
     MenuLeaf* rumble;
     MenuLeaf* monitor;
     MenuLeaf* displayMode;
@@ -270,6 +271,13 @@ std::vector<std::string> genNumbers(int count) {
         res.push_back(std::to_string(i));
     return res;
 }
+
+std::vector<std::string> genPrefillValues(TetrisConfig const& config) {
+    auto res = genNumbers(15);
+    res.insert(res.begin(), config.string(StringID::OptionsMenu_CopyPrefill));
+    return res;
+}
+
 
 std::string printResolution(const Monitor& monitor) {
     return std::format("{}x{}", monitor.currentWidth, monitor.currentHeight);
@@ -287,7 +295,9 @@ OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig& config, Text& tex
         config.string(StringID::OptionsMenu_DisplayMode_Borderless),
     };
     auto displayMode = displayModes.at(static_cast<int>(config.displayMode));
+    auto aiPrefill = config.aiPrefill == -1 ? config.string(StringID::OptionsMenu_CopyPrefill) : std::to_string(config.aiPrefill);
     (res.initialSpeed = new MenuLeaf(&text, genNumbers(20), config.string(StringID::OptionsMenu_InitialLevel), 0.05f))->setValue(std::to_string(speed));
+    (res.aiPrefill = new MenuLeaf(&text, genPrefillValues(config), config.string(StringID::OptionsMenu_AiPrefill), 0.05f))->setValue(aiPrefill);
     (res.rumble = new MenuLeaf(&text, {strYes, strNo}, config.string(StringID::OptionsMenu_Rumble), 0.05f))->setValue(config.rumble ? strYes : strNo);
     (res.displayMode = new MenuLeaf(&text, displayModes, config.string(StringID::OptionsMenu_DisplayMode), 0.05f))->setValue(displayMode);
     auto monitors = getMonitors();
@@ -300,11 +310,12 @@ OptionsMenuStructure initOptionsMenu(Menu& menu, TetrisConfig& config, Text& tex
     });
     auto monitorName = monitorIt == end(monitors) ? monitorNames.front() : monitorIt->name;
     auto resolution = printResolution(monitors.front());
-    (res.monitor = new MenuLeaf(&text, monitorNames, config.string(StringID::OptionsMenu_Monitor), 0.05f))->setValue(monitorName);
+    (res.monitor = new MenuLeaf(&text, monitorNames, config.string(StringID::OptionsMenu_Display), 0.05f))->setValue(monitorName);
     (res.resolution = new MenuLeaf(&text, {resolution}, config.string(StringID::OptionsMenu_Resolution), 0.05f))->setValue(resolution);
     menu.addLeaf(res.back);
     menu.addLeaf(res.monitor);
     menu.addLeaf(res.initialSpeed);
+    menu.addLeaf(res.aiPrefill);
     menu.addLeaf(res.rumble);
     menu.addLeaf(res.displayMode);
     menu.addLeaf(res.resolution);
@@ -549,6 +560,7 @@ public:
         logStateChange(_current, state);
         _current = state;
     }
+
     void advance(fseconds dt) {
         if (_current == State::Game) {
             // ignore
@@ -560,6 +572,7 @@ public:
             _gos->animate(dt);
         }
     }
+
     void draw() {
         if (_current == State::Game) {
             // ignore
@@ -571,6 +584,8 @@ public:
             _gos->draw();
         }
     }
+
+    State getState() const { return _current; }
 };
 
 void spinSleep(std::chrono::steady_clock::duration duration)
@@ -669,6 +684,13 @@ int desktop_main() {
         }
     };
 
+    bool isAi = false;
+    auto createTetris = [&] {
+        if (isAi)
+            return makeAiTetris(*tetris, config.aiPrefill);
+        return makeTetris(g_TetrisHor, g_TetrisVert, makePieceGenerator());
+    };
+
     FpsCounter fps;
     bool canManuallyMove;
     bool normalStep;
@@ -717,13 +739,15 @@ int desktop_main() {
     });
     menu.onValueChanged(mainMenuStructure.restart, [&]() {
         wait = fseconds();
-        tetris = makeTetris(g_TetrisHor, g_TetrisVert, makePieceGenerator());
+        isAi = false;
+        tetris = createTetris();
         tetris->setInitialLevel(config.initialLevel);
         stateManager.goTo(State::Game);
     });
     menu.onValueChanged(mainMenuStructure.playAi, [&]() {
         wait = fseconds();
-        tetris = makeAiTetris();
+        isAi = true;
+        tetris = createTetris();
         tetris->setInitialLevel(config.initialLevel);
         stateManager.goTo(State::Game);
     });
@@ -757,6 +781,14 @@ int desktop_main() {
     menu.onValueChanged(optionsMenuStructure.initialSpeed, [&]() {
         int newValue = boost::lexical_cast<int>(optionsMenuStructure.initialSpeed->value());
         config.initialLevel = newValue;
+    });
+    menu.onValueChanged(optionsMenuStructure.aiPrefill, [&]() {
+        int newValue = -1;
+        try {
+            newValue = boost::lexical_cast<int>(optionsMenuStructure.aiPrefill->value());
+        } catch (...) {
+        }
+        config.aiPrefill = newValue;
     });
     menu.onValueChanged(optionsMenuStructure.monitor, [&]() {
         const auto& values = optionsMenuStructure.monitor->values();
@@ -862,24 +894,25 @@ int desktop_main() {
         if (stats.gameOver) {
             rumble(1, fseconds(0.8));
 
-            HighscoreRecord newRecord { "", stats.lines, stats.score, config.initialLevel };
-            newLinesHighscore = updateHighscores(newRecord, config.highscoreLines, true);
-            newScoreHighscore = updateHighscores(newRecord, config.highscoreScore, false);
-            stateManager.goToNameInputState(newLinesHighscore, newScoreHighscore, [&](std::string newName) {
-                if (newLinesHighscore != -1) {
-                    config.highscoreLines.at(newLinesHighscore).name = newName;
-                }
-                if (newScoreHighscore != -1) {
-                    config.highscoreScore.at(newScoreHighscore).name = newName;
-                }
-                hscreenLines.setRecords(config.highscoreLines);
-                hscreenScore.setRecords(config.highscoreScore);
-                hscreenLinesLayout.updateFramebuffer(framebuffer);
-                hscreenScoreLayout.updateFramebuffer(framebuffer);
-                config.save();
-                tetris->reset();
-            });
-            tetris->resetGameOver();
+            if (!isAi) {
+                HighscoreRecord newRecord { "", stats.lines, stats.score, config.initialLevel };
+                newLinesHighscore = updateHighscores(newRecord, config.highscoreLines, true);
+                newScoreHighscore = updateHighscores(newRecord, config.highscoreScore, false);
+                stateManager.goToNameInputState(newLinesHighscore, newScoreHighscore, [&](std::string newName) {
+                    if (newLinesHighscore != -1) {
+                        config.highscoreLines.at(newLinesHighscore).name = newName;
+                    }
+                    if (newScoreHighscore != -1) {
+                        config.highscoreScore.at(newScoreHighscore).name = newName;
+                    }
+                    hscreenLines.setRecords(config.highscoreLines);
+                    hscreenScore.setRecords(config.highscoreScore);
+                    hscreenLinesLayout.updateFramebuffer(framebuffer);
+                    hscreenScoreLayout.updateFramebuffer(framebuffer);
+                    config.save();
+                });
+            }
+            tetris = createTetris();
         }
 
         glDisable(GL_DEPTH_TEST);
